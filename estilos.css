@@ -1,0 +1,159 @@
+/* Checkpoint · soporte y privacidad. Mismos colores que la app: verde del sello y azules de las tarjetas. */
+:root {
+  --fondo: #f4f8ff;
+  --superficie: #ffffff;
+  --borde: #c9d9f2;
+  --texto: #0b2447;
+  --suave: #4a5a7a;
+  --acento: #1f5fd6;
+  --verde: #05904a;
+  --cabecera: #0b2447;
+  --cabecera-texto: #ffffff;
+  --cabecera-suave: #c9dcf5;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #0a1222;
+    --superficie: #111c33;
+    --borde: #22324f;
+    --texto: #e6edf8;
+    --suave: #9fb0cc;
+    --acento: #7aa7ff;
+    --verde: #3ddc84;
+    --cabecera: #071022;
+    --cabecera-suave: #9fb6d9;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--acento); }
+
+.cabecera {
+  background: var(--cabecera);
+  color: var(--cabecera-texto);
+  padding: 56px 16px 64px;
+  text-align: center;
+}
+
+.cabecera img {
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
+  box-shadow: 0 12px 32px rgba(5, 144, 74, 0.35);
+}
+
+.cabecera h1 {
+  margin: 20px 0 4px;
+  font: 700 40px/1.1 ui-rounded, -apple-system, "SF Pro Rounded", system-ui, sans-serif;
+  letter-spacing: -0.5px;
+}
+
+.cabecera p {
+  margin: 0;
+  color: var(--cabecera-suave);
+  font-size: 19px;
+}
+
+main {
+  max-width: 720px;
+  margin: -32px auto 0;
+  padding: 0 16px 48px;
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.tarjeta h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.tarjeta h3 {
+  margin: 24px 0 6px;
+  font-size: 18px;
+}
+
+.tarjeta p, .tarjeta li { color: var(--suave); }
+.tarjeta strong { color: var(--texto); }
+.tarjeta ul { padding-left: 20px; margin: 8px 0; }
+
+.boton {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: var(--acento);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tarjeta p.correo {
+  margin: 10px 0 0;
+  font-size: 15px;
+  user-select: all;
+}
+
+details {
+  border-top: 1px solid var(--borde);
+  padding: 14px 0;
+}
+
+details:first-of-type { border-top: 0; padding-top: 4px; }
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; color: var(--acento); font-weight: 400; font-size: 22px; line-height: 1; }
+details[open] summary::after { content: "−"; }
+details p { margin: 10px 0 0; }
+
+code {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font: 15px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--texto);
+}
+
+.fecha { font-size: 15px; }
+
+footer {
+  text-align: center;
+  color: var(--suave);
+  font-size: 15px;
+  padding: 0 16px 40px;
+}
+
+footer a { margin: 0 6px; }
+
+@media (max-width: 480px) {
+  .cabecera { padding: 40px 16px 56px; }
+  .cabecera h1 { font-size: 34px; }
+  .tarjeta { padding: 20px; }
+}
