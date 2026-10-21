@@ -29,6 +29,9 @@
 
 * { box-sizing: border-box; }
 
+/* Lo oculto se queda oculto aunque su clase le dé otra forma de mostrarse (como .boton). */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--fondo);
