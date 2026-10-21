@@ -1,0 +1,3 @@
+# Cloudflare Pages: Apple solo acepta este archivo si se sirve como JSON.
+/.well-known/apple-app-site-association
+  Content-Type: application/json
