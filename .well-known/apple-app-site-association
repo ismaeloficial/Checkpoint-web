@@ -2,9 +2,18 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["T69Z9ZC3B3.com.ismaelarco.checkpoint"],
+        "appIDs": [
+          "T69Z9ZC3B3.com.ismaelarco.checkpoint"
+        ],
         "components": [
-          { "/": "/c", "comment": "Cuentas enviadas desde Checkpoint: se abren en la app" }
+          {
+            "/": "/c",
+            "comment": "Cuentas enviadas desde Checkpoint: se abren en la app"
+          },
+          {
+            "/": "/g/*",
+            "comment": "Invitaciones a grupos de Checkpoint: se abren en la app"
+          }
         ]
       }
     ]

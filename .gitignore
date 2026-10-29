@@ -1,0 +1,4 @@
+# Herramientas instaladas con npm (wrangler) y su base de datos de pruebas local: no se suben.
+node_modules/
+.wrangler/
+.dev.vars

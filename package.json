@@ -1,0 +1,12 @@
+{
+  "name": "checkpoint-web",
+  "private": true,
+  "description": "Web de Checkpoint (checkpoint.iarg.dev) y servidor de los grupos (Cloudflare Pages Functions + D1).",
+  "scripts": {
+    "servidor": "wrangler pages dev .",
+    "test": "node --test pruebas/*.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

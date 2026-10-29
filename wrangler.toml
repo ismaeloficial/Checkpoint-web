@@ -1,0 +1,13 @@
+# Configuración del proyecto de Cloudflare Pages "checkpoint": la web (checkpoint.iarg.dev) y el servidor de los
+# grupos (carpeta functions, en /api) con su base de datos D1.
+name = "checkpoint"
+pages_build_output_dir = "."
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "checkpoint-grupos"
+# La base de datos de verdad (Cloudflare → Storage & Databases → D1), con jurisdicción de la UE: los datos de los
+# grupos se guardan y se procesan siempre dentro de la Unión Europea.
+database_id = "7eee573d-d81c-4cda-ae50-16f27c96a4c7"
+migrations_dir = "migrations"
