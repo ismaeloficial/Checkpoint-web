@@ -31,6 +31,7 @@ const WEB = "https://checkpoint.iarg.dev";
 const MAX_IMPORTE = 10_000_000; // 100.000 €
 const MAX_MIEMBROS = 50;
 const MAX_CUERPO = 100_000;
+const MAX_FOTO = 300_000;
 const REPARTOS = ["iguales", "exactas", "partes"];
 const NO_ABANDONAR = "No puedes abandonar el grupo hasta que tus cuentas estén saldadas.";
 
@@ -60,6 +61,12 @@ async function atender(metodo: string, ruta: string[], ctx: Contexto): Promise<R
   if (a === "yo" && ruta.length === 1 && metodo === "PUT") return registrar(ctx);
 
   const yo = await identificar(ctx);
+  // La foto va tal cual (no en JSON).
+  if (a === "yo" && b === "foto" && ruta.length === 2) {
+    if (metodo === "PUT") return json(await subirFoto(db, yo.id, ctx.request));
+    if (metodo === "DELETE") return json(await borrarFoto(db, yo.id));
+  }
+  if (a === "fotos" && ruta.length === 2 && metodo === "GET") return verFoto(db, b, yo.id);
   const cuerpo = metodo === "GET" || metodo === "DELETE" ? {} : await leerJSON(ctx.request);
 
   if (a === "grupos") {
@@ -70,6 +77,7 @@ async function atender(metodo: string, ruta: string[], ctx: Contexto): Promise<R
     if (ruta.length === 3 && c === "invitacion" && metodo === "POST") return json(await invitacion(db, b, yo.id));
     if (ruta.length === 3 && c === "archivar" && metodo === "POST") return json(await archivar(db, b, yo.id, cuerpo));
     if (ruta.length === 3 && c === "abandonar" && metodo === "POST") return json(await abandonar(db, b, yo.id));
+    if (ruta.length === 5 && c === "miembros" && ruta[4] === "quitar" && metodo === "POST") return json(await quitar(db, b, d, yo.id));
     if (ruta.length === 3 && c === "saldar" && metodo === "POST") return json(await saldar(db, b, yo.id, cuerpo));
     if (ruta.length === 3 && c === "gastos" && metodo === "POST") return json(await nuevoGasto(db, b, yo.id, cuerpo), 201);
     if (ruta.length === 4 && c === "gastos" && metodo === "PUT") return json(await cambiarGasto(db, b, d, yo.id, cuerpo));
@@ -176,13 +184,73 @@ async function archivar(db: BaseDatos, grupo: string, yo: string, cuerpo: Fila):
 /** Solo sin nada pendiente en ningún sentido: ni lo que debes ni lo que te deben. */
 async function abandonar(db: BaseDatos, grupo: string, yo: string): Promise<Fila> {
   await miembroActivo(db, grupo, yo);
+  if (await tienePendiente(db, grupo, yo)) throw new Fallo(409, NO_ABANDONAR);
+  await db.prepare("UPDATE miembros SET salida = ? WHERE grupo_id = ? AND usuario_id = ?").bind(Date.now(), grupo, yo).run();
+  return { abandonado: grupo };
+}
+
+/** Quien creó el grupo saca a otro, si no tiene nada pendiente (lo suyo sigue en el historial, como al abandonar). */
+async function quitar(db: BaseDatos, grupo: string, otro: string, yo: string): Promise<Fila> {
+  await miembroActivo(db, grupo, yo);
+  const fila = await db.prepare("SELECT creado_por FROM grupos WHERE id = ?").bind(grupo).first();
+  if (fila?.creado_por !== yo) throw new Fallo(403, "Solo quien creó el grupo puede quitar a alguien.");
+  if (otro === yo) throw new Fallo(400, "Para salir tú, abandona el grupo.");
+  const suyo = await db.prepare("SELECT salida FROM miembros WHERE grupo_id = ? AND usuario_id = ?").bind(grupo, otro).first();
+  if (!suyo || suyo.salida !== null) throw new Fallo(404, "No está en el grupo.");
+  if (await tienePendiente(db, grupo, otro)) throw new Fallo(409, "No se puede quitar a alguien con cuentas pendientes en el grupo.");
+  await db.prepare("UPDATE miembros SET salida = ? WHERE grupo_id = ? AND usuario_id = ?").bind(Date.now(), grupo, otro).run();
+  return grupoCompleto(db, grupo, yo);
+}
+
+/** Si alguien debe o le deben algo en el grupo. */
+async function tienePendiente(db: BaseDatos, grupo: string, quien: string): Promise<boolean> {
   const pendientes = await db.prepare(
     `SELECT COUNT(*) AS n FROM partes p JOIN gastos g ON g.id = p.gasto_id
      WHERE g.grupo_id = ? AND p.saldada_en IS NULL AND p.deudor != g.pagador AND (p.deudor = ? OR g.pagador = ?)`
-  ).bind(grupo, yo, yo).first();
-  if ((pendientes?.n ?? 0) > 0) throw new Fallo(409, NO_ABANDONAR);
-  await db.prepare("UPDATE miembros SET salida = ? WHERE grupo_id = ? AND usuario_id = ?").bind(Date.now(), grupo, yo).run();
-  return { abandonado: grupo };
+  ).bind(grupo, quien, quien).first();
+  return (pendientes?.n ?? 0) > 0;
+}
+
+// MARK: - Fotos
+
+/** La foto de perfil, tal cual (JPEG o PNG, pequeña). Devuelve su versión nueva. */
+async function subirFoto(db: BaseDatos, yo: string, request: Request): Promise<Fila> {
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (bytes.length === 0 || bytes.length > MAX_FOTO) throw new Fallo(413, "La foto es demasiado grande.");
+  const esJPEG = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const esPNG = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  if (!esJPEG && !esPNG) throw new Fallo(415, "La foto tiene que ser JPEG o PNG.");
+  let binario = "";
+  for (let k = 0; k < bytes.length; k += 0x8000) binario += String.fromCharCode(...bytes.subarray(k, k + 0x8000));
+  const version = Date.now();
+  await db.prepare(
+    `INSERT INTO fotos (usuario_id, datos, tipo, version) VALUES (?, ?, ?, ?)
+     ON CONFLICT(usuario_id) DO UPDATE SET datos = excluded.datos, tipo = excluded.tipo, version = excluded.version`
+  ).bind(yo, btoa(binario), esJPEG ? "image/jpeg" : "image/png", version).run();
+  return { version };
+}
+
+async function borrarFoto(db: BaseDatos, yo: string): Promise<Fila> {
+  await db.prepare("DELETE FROM fotos WHERE usuario_id = ?").bind(yo).run();
+  return { version: null };
+}
+
+/** La foto de alguien: solo para él mismo y para quien comparte (o compartió) algún grupo con él. */
+async function verFoto(db: BaseDatos, usuario: string, yo: string): Promise<Response> {
+  if (usuario !== yo) {
+    const comparten = await db.prepare(
+      `SELECT 1 FROM miembros a JOIN miembros b ON a.grupo_id = b.grupo_id WHERE a.usuario_id = ? AND b.usuario_id = ? LIMIT 1`
+    ).bind(yo, usuario).first();
+    if (!comparten) throw new Fallo(404, "No existe.");
+  }
+  const foto = await db.prepare("SELECT datos, tipo, version FROM fotos WHERE usuario_id = ?").bind(usuario).first();
+  if (!foto) throw new Fallo(404, "No tiene foto.");
+  const binario = atob(foto.datos);
+  const bytes = new Uint8Array(binario.length);
+  for (let k = 0; k < binario.length; k++) bytes[k] = binario.charCodeAt(k);
+  return new Response(bytes, {
+    headers: { "Content-Type": foto.tipo, "Cache-Control": "private, max-age=31536000", ETag: `"${foto.version}"` },
+  });
 }
 
 // MARK: - Invitaciones
@@ -203,14 +271,16 @@ async function invitacion(db: BaseDatos, grupo: string, yo: string): Promise<Fil
 async function verInvitacion(db: BaseDatos, codigo: string, yo: string): Promise<Fila> {
   const grupo = await grupoDeInvitacion(db, codigo);
   const { results } = await db.prepare(
-    `SELECT u.id, u.nombre, u.apellido FROM miembros m JOIN usuarios u ON u.id = m.usuario_id
-     WHERE m.grupo_id = ? AND m.salida IS NULL ORDER BY m.entrada`
+    `SELECT u.id, u.nombre, u.apellido, f.version AS foto FROM miembros m JOIN usuarios u ON u.id = m.usuario_id
+     LEFT JOIN fotos f ON f.usuario_id = u.id WHERE m.grupo_id = ? AND m.salida IS NULL ORDER BY m.entrada`
   ).bind(grupo.id).all();
   return {
     id: grupo.id,
     nombre: grupo.nombre,
     emoji: grupo.emoji,
-    miembros: results.map((u) => ({ id: u.id, nombre: u.nombre, apellido: u.apellido, dentro: true })),
+    miembros: results.map((u) => ({
+      id: u.id, nombre: u.nombre, apellido: u.apellido, dentro: true, ...(u.foto === null ? {} : { foto: u.foto }),
+    })),
     yaEstas: results.some((u) => u.id === yo),
   };
 }
@@ -388,10 +458,11 @@ async function miembroActivo(db: BaseDatos, grupo: string, yo: string): Promise<
 async function grupoCompleto(db: BaseDatos, grupo: string, yo: string): Promise<Fila> {
   const [grupos, miembros, gastos, partes] = await db.batch([
     db.prepare(
-      "SELECT g.id, g.nombre, g.emoji, g.creado, m.archivado FROM grupos g JOIN miembros m ON m.grupo_id = g.id AND m.usuario_id = ? WHERE g.id = ?"
+      "SELECT g.id, g.nombre, g.emoji, g.creado, g.creado_por, m.archivado FROM grupos g JOIN miembros m ON m.grupo_id = g.id AND m.usuario_id = ? WHERE g.id = ?"
     ).bind(yo, grupo),
     db.prepare(
-      "SELECT u.id, u.nombre, u.apellido, m.salida FROM miembros m JOIN usuarios u ON u.id = m.usuario_id WHERE m.grupo_id = ? ORDER BY m.entrada"
+      `SELECT u.id, u.nombre, u.apellido, m.salida, f.version AS foto FROM miembros m JOIN usuarios u ON u.id = m.usuario_id
+       LEFT JOIN fotos f ON f.usuario_id = u.id WHERE m.grupo_id = ? ORDER BY m.entrada`
     ).bind(grupo),
     db.prepare("SELECT id, pagador, concepto, centimos, reparto, fecha, editado FROM gastos WHERE grupo_id = ? ORDER BY fecha").bind(grupo),
     db.prepare(
@@ -406,7 +477,10 @@ async function grupoCompleto(db: BaseDatos, grupo: string, yo: string): Promise<
     emoji: g.emoji,
     creado: g.creado,
     archivado: g.archivado === 1,
-    miembros: miembros.results.map((m) => ({ id: m.id, nombre: m.nombre, apellido: m.apellido, dentro: m.salida === null })),
+    creadoPor: g.creado_por,
+    miembros: miembros.results.map((m) => ({
+      id: m.id, nombre: m.nombre, apellido: m.apellido, dentro: m.salida === null, ...(m.foto === null ? {} : { foto: m.foto }),
+    })),
     gastos: gastos.results.map((x) => ({
       id: x.id,
       pagador: x.pagador,

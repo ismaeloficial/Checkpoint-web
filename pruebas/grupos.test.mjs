@@ -44,7 +44,16 @@ function persona(nombre) {
     });
     return { estado: r.status, datos: await r.json() };
   };
-  return { id, nombre, pedir };
+  /** Sin JSON: para la foto (bytes tal cual) y para leerla. */
+  const crudo = async (metodo, ruta, bytes, tipo = "image/jpeg") => {
+    const r = await fetch(API + ruta, {
+      method: metodo,
+      headers: { "X-Checkpoint-Usuario": id, Authorization: `Bearer ${clave}`, "Content-Type": tipo },
+      body: bytes,
+    });
+    return { estado: r.status, tipo: r.headers.get("content-type"), bytes: new Uint8Array(await r.arrayBuffer()) };
+  };
+  return { id, nombre, pedir, crudo };
 }
 
 const yo = persona("Ismael"), paco = persona("Paco"), juanma = persona("Juanma"), pablo = persona("Pablo");
@@ -189,4 +198,62 @@ test("la página de una invitación, y la web de siempre sigue igual", async () 
   const aasa = await fetch(`${web}/.well-known/apple-app-site-association`);
   assert.match(aasa.headers.get("content-type") ?? "", /application\/json/);
   assert.ok((await aasa.json()).applinks.details[0].components.some((c) => c["/"] === "/g/*"));
+});
+
+test("foto de perfil: la que quieras, pequeña, y solo la ven los de tus grupos", async () => {
+  const ana = persona("Ana"), luis = persona("Luis"), extrano = persona("Extraño");
+  for (const p of [ana, luis, extrano]) await p.pedir("PUT", "/yo", { nombre: p.nombre });
+  const g = (await ana.pedir("POST", "/grupos", { nombre: "Fotos", emoji: "" })).datos;
+  const inv = (await ana.pedir("POST", `/grupos/${g.id}/invitacion`)).datos;
+  await luis.pedir("POST", `/invitaciones/${inv.codigo}`);
+
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...randomBytes(2000)]);
+  const subida = await ana.crudo("PUT", "/yo/foto", jpeg);
+  assert.equal(subida.estado, 200);
+  // Ni algo que no sea una imagen ni una enorme.
+  assert.equal((await ana.crudo("PUT", "/yo/foto", new Uint8Array([1, 2, 3, 4]))).estado, 415);
+  assert.equal((await ana.crudo("PUT", "/yo/foto", new Uint8Array(400_000).fill(0xff))).estado, 413);
+
+  // En el grupo sale la versión de su foto (y quién lo creó); Luis no tiene.
+  const visto = (await luis.pedir("GET", `/grupos/${g.id}`)).datos;
+  assert.equal(visto.creadoPor, ana.id);
+  assert.ok(visto.miembros.find((m) => m.id === ana.id).foto > 0);
+  assert.equal(visto.miembros.find((m) => m.id === luis.id).foto, undefined);
+
+  // Luis la ve tal cual; alguien que no comparte grupo con ella, no.
+  const vista = await luis.crudo("GET", `/fotos/${ana.id}`);
+  assert.equal(vista.estado, 200);
+  assert.equal(vista.tipo, "image/jpeg");
+  assert.deepEqual(vista.bytes, jpeg);
+  assert.equal((await extrano.crudo("GET", `/fotos/${ana.id}`)).estado, 404);
+
+  // Y se puede quitar.
+  assert.equal((await ana.crudo("DELETE", "/yo/foto")).estado, 200);
+  assert.equal((await luis.crudo("GET", `/fotos/${ana.id}`)).estado, 404);
+});
+
+test("quien creó el grupo puede quitar a alguien sin nada pendiente", async () => {
+  const marta = persona("Marta"), dani = persona("Dani"), sara = persona("Sara");
+  for (const p of [marta, dani, sara]) await p.pedir("PUT", "/yo", { nombre: p.nombre });
+  const g = (await marta.pedir("POST", "/grupos", { nombre: "Piso", emoji: "" })).datos;
+  const inv = (await marta.pedir("POST", `/grupos/${g.id}/invitacion`)).datos;
+  await dani.pedir("POST", `/invitaciones/${inv.codigo}`);
+  await sara.pedir("POST", `/invitaciones/${inv.codigo}`);
+  // Sara le debe algo a Marta.
+  await marta.pedir("POST", `/grupos/${g.id}/gastos`, { id: randomUUID(), concepto: "Luz", centimos: 2000, reparto: "iguales",
+    partes: [{ deudor: marta.id, centimos: 1000 }, { deudor: sara.id, centimos: 1000 }] });
+
+  // Solo quien lo creó, y a quien no tiene nada pendiente.
+  assert.equal((await dani.pedir("POST", `/grupos/${g.id}/miembros/${sara.id}/quitar`)).estado, 403);
+  const conDeuda = await marta.pedir("POST", `/grupos/${g.id}/miembros/${sara.id}/quitar`);
+  assert.equal(conDeuda.estado, 409);
+  assert.match(conDeuda.datos.error, /cuentas pendientes/);
+  assert.equal((await marta.pedir("POST", `/grupos/${g.id}/miembros/${marta.id}/quitar`)).estado, 400);
+
+  const quitado = await marta.pedir("POST", `/grupos/${g.id}/miembros/${dani.id}/quitar`);
+  assert.equal(quitado.estado, 200);
+  assert.equal(quitado.datos.miembros.find((m) => m.id === dani.id).dentro, false);
+  assert.equal((await dani.pedir("GET", `/grupos/${g.id}`)).estado, 404);
+  // Con el enlace puede volver.
+  assert.equal((await dani.pedir("POST", `/invitaciones/${inv.codigo}`)).estado, 200);
 });
