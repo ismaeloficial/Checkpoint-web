@@ -10,6 +10,8 @@ interface Contexto {
   params: { codigo?: string };
 }
 
+const WEB = "https://checkpoint.iarg.dev";
+
 // Dónde se descarga la app. Vacío: aún no está publicada en esa tienda.
 const APP_STORE = "";
 const GOOGLE_PLAY = "";
@@ -43,6 +45,12 @@ function pagina(codigo: string, grupo: Record<string, any> | null): string {
   const sinTiendas = !APP_STORE && !GOOGLE_PLAY
     ? `<p>Checkpoint llegará muy pronto al App Store y a Google Play.</p>`
     : "";
+  // Lo que enseñan WhatsApp, Mensajes… si se pega el enlace suelto: el nombre del grupo y una imagen de invitación
+  // (en petróleo, nada que ver con la tarjeta de unas cuentas).
+  const tituloPrevia = grupo ? `Únete a «${escapar(grupo.nombre)}» en Checkpoint` : "Invitación a un grupo de Checkpoint";
+  const textoPrevia = grupo
+    ? `Un grupo con ${grupo.miembros} ${grupo.miembros === 1 ? "persona" : "personas"}. Ábrelo con Checkpoint para unirte y llevar las cuentas juntos.`
+    : "Cada uno apunta lo que paga y Checkpoint calcula quién le debe a quién.";
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -50,6 +58,15 @@ function pagina(codigo: string, grupo: Record<string, any> | null): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Checkpoint · ${titulo}</title>
   <meta name="robots" content="noindex">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Checkpoint">
+  <meta property="og:title" content="${tituloPrevia}">
+  <meta property="og:description" content="${textoPrevia}">
+  <meta property="og:image" content="${WEB}/invitacion.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Te han invitado a un grupo de Checkpoint">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="/icono.png">
   <link rel="apple-touch-icon" href="/icono.png">
   <link rel="stylesheet" href="/estilos.css">

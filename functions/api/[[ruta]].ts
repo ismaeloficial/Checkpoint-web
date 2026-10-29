@@ -4,7 +4,8 @@
 // inventa ella misma. Con cada petición manda las dos (cabeceras X-Checkpoint-Usuario y Authorization: Bearer) y
 // aquí se comprueba la clave contra su huella. Todas las reglas se comprueban aquí, aunque la app ya las cumpla:
 // cada uno solo apunta lo que paga él, solo salda lo suyo (o lo que le deben a él), solo cambia o borra sus gastos
-// mientras nadie haya pagado, y no puede abandonar un grupo con cuentas pendientes.
+// mientras nadie haya pagado, y no puede abandonar un grupo con cuentas pendientes. Con el enlace de un grupo no se
+// entra: se pide entrar y quien lo administra acepta. Y avisa (notificaciones de Apple) de lo que le toca a cada uno.
 
 // Lo mínimo de D1 que se usa (los tipos completos están en @cloudflare/workers-types).
 type Fila = Record<string, any>;
@@ -20,11 +21,26 @@ interface BaseDatos {
 }
 interface Env {
   DB: BaseDatos;
+  /** Avisos de Apple (APNs): el contenido de la clave .p8, su ID y el del equipo de desarrollo. Sin ellas no se avisa. */
+  APNS_KEY?: string;
+  APNS_KEY_ID?: string;
+  APNS_TEAM_ID?: string;
+  /** El ID de la app (por defecto, com.ismaelarco.checkpoint). */
+  APNS_TOPIC?: string;
+  /** Solo en las pruebas: un servidor falso en vez del de Apple. */
+  APNS_URL?: string;
 }
 interface Contexto {
   request: Request;
   env: Env;
   params: { ruta?: string | string[] };
+  /** Para lo que sigue tras responder (los avisos): quien hizo algo no espera a que lleguen. */
+  waitUntil(promesa: Promise<unknown>): void;
+}
+interface Usuario {
+  id: string;
+  nombre: string;
+  apellido: string;
 }
 
 const WEB = "https://checkpoint.iarg.dev";
@@ -68,6 +84,12 @@ async function atender(metodo: string, ruta: string[], ctx: Contexto): Promise<R
   }
   if (a === "fotos" && ruta.length === 2 && metodo === "GET") return verFoto(db, b, yo.id);
   const cuerpo = metodo === "GET" || metodo === "DELETE" ? {} : await leerJSON(ctx.request);
+  const avisar = avisador(ctx, yo.id);
+
+  if (a === "dispositivos" && ruta.length === 1 && metodo === "PUT") return json(await registrarDispositivo(db, yo.id, cuerpo));
+  if (a === "dispositivos" && ruta.length === 2 && metodo === "DELETE") return json(await olvidarDispositivo(db, b, yo.id));
+  if (a === "solicitudes" && ruta.length === 1 && metodo === "GET") return json(await misSolicitudes(db, yo.id));
+  if (a === "solicitudes" && ruta.length === 2 && metodo === "DELETE") return json(await cancelarSolicitud(db, b, yo.id));
 
   if (a === "grupos") {
     if (ruta.length === 1 && metodo === "GET") return json(await misGrupos(db, yo.id));
@@ -75,17 +97,20 @@ async function atender(metodo: string, ruta: string[], ctx: Contexto): Promise<R
     if (ruta.length === 2 && metodo === "GET") return json(await grupoPara(db, b, yo.id));
     if (ruta.length === 2 && metodo === "PATCH") return json(await cambiarGrupo(db, b, yo.id, cuerpo));
     if (ruta.length === 3 && c === "invitacion" && metodo === "POST") return json(await invitacion(db, b, yo.id));
+    if (ruta.length === 4 && c === "invitacion" && d === "nueva" && metodo === "POST") return json(await nuevaInvitacion(db, b, yo.id));
+    if (ruta.length === 5 && c === "solicitudes" && ruta[4] === "aceptar" && metodo === "POST") return json(await aceptar(db, b, d, yo.id, avisar));
+    if (ruta.length === 5 && c === "solicitudes" && ruta[4] === "rechazar" && metodo === "POST") return json(await rechazar(db, b, d, yo.id));
     if (ruta.length === 3 && c === "archivar" && metodo === "POST") return json(await archivar(db, b, yo.id, cuerpo));
     if (ruta.length === 3 && c === "abandonar" && metodo === "POST") return json(await abandonar(db, b, yo.id));
-    if (ruta.length === 5 && c === "miembros" && ruta[4] === "quitar" && metodo === "POST") return json(await quitar(db, b, d, yo.id));
-    if (ruta.length === 3 && c === "saldar" && metodo === "POST") return json(await saldar(db, b, yo.id, cuerpo));
-    if (ruta.length === 3 && c === "gastos" && metodo === "POST") return json(await nuevoGasto(db, b, yo.id, cuerpo), 201);
-    if (ruta.length === 4 && c === "gastos" && metodo === "PUT") return json(await cambiarGasto(db, b, d, yo.id, cuerpo));
-    if (ruta.length === 4 && c === "gastos" && metodo === "DELETE") return json(await borrarGasto(db, b, d, yo.id));
+    if (ruta.length === 5 && c === "miembros" && ruta[4] === "quitar" && metodo === "POST") return json(await quitar(db, b, d, yo.id, avisar));
+    if (ruta.length === 3 && c === "saldar" && metodo === "POST") return json(await saldar(db, b, yo, cuerpo, avisar));
+    if (ruta.length === 3 && c === "gastos" && metodo === "POST") return json(await nuevoGasto(db, b, yo, cuerpo, avisar), 201);
+    if (ruta.length === 4 && c === "gastos" && metodo === "PUT") return json(await cambiarGasto(db, b, d, yo, cuerpo, avisar));
+    if (ruta.length === 4 && c === "gastos" && metodo === "DELETE") return json(await borrarGasto(db, b, d, yo, avisar));
   }
   if (a === "invitaciones" && ruta.length === 2) {
     if (metodo === "GET") return json(await verInvitacion(db, b, yo.id));
-    if (metodo === "POST") return json(await unirse(db, b, yo.id));
+    if (metodo === "POST") return json(await unirse(db, b, yo, avisar));
   }
   if (a === "aplicados" && ruta.length === 1 && metodo === "POST") return json(await aplicados(db, yo.id, cuerpo));
 
@@ -114,7 +139,7 @@ async function registrar(ctx: Contexto): Promise<Response> {
   return json({ id, nombre, apellido });
 }
 
-async function identificar(ctx: Contexto): Promise<{ id: string; nombre: string; apellido: string }> {
+async function identificar(ctx: Contexto): Promise<Usuario> {
   const { id, clave } = credenciales(ctx.request);
   const fila = await ctx.env.DB.prepare("SELECT id, nombre, apellido, clave_hash FROM usuarios WHERE id = ?").bind(id).first();
   if (!fila || fila.clave_hash !== (await huella(clave))) {
@@ -189,17 +214,37 @@ async function abandonar(db: BaseDatos, grupo: string, yo: string): Promise<Fila
   return { abandonado: grupo };
 }
 
-/** Quien creó el grupo saca a otro, si no tiene nada pendiente (lo suyo sigue en el historial, como al abandonar). */
-async function quitar(db: BaseDatos, grupo: string, otro: string, yo: string): Promise<Fila> {
-  await miembroActivo(db, grupo, yo);
-  const fila = await db.prepare("SELECT creado_por FROM grupos WHERE id = ?").bind(grupo).first();
-  if (fila?.creado_por !== yo) throw new Fallo(403, "Solo quien creó el grupo puede quitar a alguien.");
+/** Quien administra el grupo saca a otro, si no tiene nada pendiente (lo suyo sigue en el historial, como al abandonar). */
+async function quitar(db: BaseDatos, grupo: string, otro: string, yo: string, avisar: Avisar): Promise<Fila> {
+  await esAdmin(db, grupo, yo);
   if (otro === yo) throw new Fallo(400, "Para salir tú, abandona el grupo.");
   const suyo = await db.prepare("SELECT salida FROM miembros WHERE grupo_id = ? AND usuario_id = ?").bind(grupo, otro).first();
   if (!suyo || suyo.salida !== null) throw new Fallo(404, "No está en el grupo.");
   if (await tienePendiente(db, grupo, otro)) throw new Fallo(409, "No se puede quitar a alguien con cuentas pendientes en el grupo.");
   await db.prepare("UPDATE miembros SET salida = ? WHERE grupo_id = ? AND usuario_id = ?").bind(Date.now(), grupo, otro).run();
+  const nombre = await nombreGrupo(db, grupo);
+  avisar([otro], { titulo: nombre, texto: `Te han quitado de «${nombre}».`, grupo });
   return grupoCompleto(db, grupo, yo);
+}
+
+/** Quien administra el grupo: quien lo creó si sigue dentro; si no, el que más tiempo lleva en él. */
+async function adminDe(db: BaseDatos, grupo: string): Promise<string | null> {
+  const fila = await db.prepare(
+    `SELECT CASE WHEN EXISTS (SELECT 1 FROM miembros WHERE grupo_id = g.id AND usuario_id = g.creado_por AND salida IS NULL)
+     THEN g.creado_por
+     ELSE (SELECT usuario_id FROM miembros WHERE grupo_id = g.id AND salida IS NULL ORDER BY entrada LIMIT 1) END AS admin
+     FROM grupos g WHERE g.id = ?`
+  ).bind(grupo).first();
+  return fila?.admin ?? null;
+}
+
+async function esAdmin(db: BaseDatos, grupo: string, yo: string): Promise<void> {
+  await miembroActivo(db, grupo, yo);
+  if ((await adminDe(db, grupo)) !== yo) throw new Fallo(403, "Eso solo puede hacerlo quien administra el grupo.");
+}
+
+async function nombreGrupo(db: BaseDatos, grupo: string): Promise<string> {
+  return (await db.prepare("SELECT nombre FROM grupos WHERE id = ?").bind(grupo).first())?.nombre ?? "Checkpoint";
 }
 
 /** Si alguien debe o le deben algo en el grupo. */
@@ -235,12 +280,15 @@ async function borrarFoto(db: BaseDatos, yo: string): Promise<Fila> {
   return { version: null };
 }
 
-/** La foto de alguien: solo para él mismo y para quien comparte (o compartió) algún grupo con él. */
+/** La foto de alguien: solo para él mismo, para quien comparte (o compartió) algún grupo con él y para los de un grupo
+ *  en el que ha pedido entrar (para que sepan quién es). */
 async function verFoto(db: BaseDatos, usuario: string, yo: string): Promise<Response> {
   if (usuario !== yo) {
     const comparten = await db.prepare(
-      `SELECT 1 FROM miembros a JOIN miembros b ON a.grupo_id = b.grupo_id WHERE a.usuario_id = ? AND b.usuario_id = ? LIMIT 1`
-    ).bind(yo, usuario).first();
+      `SELECT 1 FROM miembros a JOIN miembros b ON a.grupo_id = b.grupo_id WHERE a.usuario_id = ? AND b.usuario_id = ?
+       UNION SELECT 1 FROM miembros m JOIN solicitudes s ON s.grupo_id = m.grupo_id
+       WHERE m.usuario_id = ? AND m.salida IS NULL AND s.usuario_id = ? LIMIT 1`
+    ).bind(yo, usuario, yo, usuario).first();
     if (!comparten) throw new Fallo(404, "No existe.");
   }
   const foto = await db.prepare("SELECT datos, tipo, version FROM fotos WHERE usuario_id = ?").bind(usuario).first();
@@ -268,8 +316,17 @@ async function invitacion(db: BaseDatos, grupo: string, yo: string): Promise<Fil
   return { codigo, enlace: `${WEB}/g/${codigo}` };
 }
 
+/** Quien administra el grupo crea un enlace nuevo: el de antes deja de valer (por si ha llegado a quien no debía). */
+async function nuevaInvitacion(db: BaseDatos, grupo: string, yo: string): Promise<Fila> {
+  await esAdmin(db, grupo, yo);
+  const codigo = codigoAleatorio(12);
+  await db.prepare("UPDATE grupos SET invitacion = ? WHERE id = ?").bind(codigo, grupo).run();
+  return { codigo, enlace: `${WEB}/g/${codigo}` };
+}
+
 async function verInvitacion(db: BaseDatos, codigo: string, yo: string): Promise<Fila> {
   const grupo = await grupoDeInvitacion(db, codigo);
+  const pendiente = await db.prepare("SELECT 1 FROM solicitudes WHERE grupo_id = ? AND usuario_id = ?").bind(grupo.id, yo).first();
   const { results } = await db.prepare(
     `SELECT u.id, u.nombre, u.apellido, f.version AS foto FROM miembros m JOIN usuarios u ON u.id = m.usuario_id
      LEFT JOIN fotos f ON f.usuario_id = u.id WHERE m.grupo_id = ? AND m.salida IS NULL ORDER BY m.entrada`
@@ -282,23 +339,61 @@ async function verInvitacion(db: BaseDatos, codigo: string, yo: string): Promise
       id: u.id, nombre: u.nombre, apellido: u.apellido, dentro: true, ...(u.foto === null ? {} : { foto: u.foto }),
     })),
     yaEstas: results.some((u) => u.id === yo),
+    pendiente: pendiente !== null,
   };
 }
 
-async function unirse(db: BaseDatos, codigo: string, yo: string): Promise<Fila> {
+/** Con el enlace no se entra: se pide entrar y quien administra el grupo acepta o no (se le avisa). Mientras, no se ve
+ *  nada del grupo. Si ya estás dentro, el grupo. */
+async function unirse(db: BaseDatos, codigo: string, yo: Usuario, avisar: Avisar): Promise<Fila> {
   const grupo = await grupoDeInvitacion(db, codigo);
-  const yaDentro = await db.prepare("SELECT salida FROM miembros WHERE grupo_id = ? AND usuario_id = ?").bind(grupo.id, yo).first();
-  if (yaDentro && yaDentro.salida === null) return grupoCompleto(db, grupo.id, yo);
-  const activos = await db.prepare("SELECT COUNT(*) AS n FROM miembros WHERE grupo_id = ? AND salida IS NULL").bind(grupo.id).first();
-  if ((activos?.n ?? 0) >= MAX_MIEMBROS) throw new Fallo(409, "El grupo está completo.");
-  if (yaDentro) {
-    // Vuelve alguien que lo había abandonado.
-    await db.prepare("UPDATE miembros SET salida = NULL, archivado = 0, entrada = ? WHERE grupo_id = ? AND usuario_id = ?")
-      .bind(Date.now(), grupo.id, yo).run();
-  } else {
-    await db.prepare("INSERT INTO miembros (grupo_id, usuario_id, entrada) VALUES (?, ?, ?)").bind(grupo.id, yo, Date.now()).run();
+  const yaDentro = await db.prepare("SELECT salida FROM miembros WHERE grupo_id = ? AND usuario_id = ?").bind(grupo.id, yo.id).first();
+  if (yaDentro && yaDentro.salida === null) return { estado: "dentro", grupo: await grupoCompleto(db, grupo.id, yo.id) };
+  const nueva = await db.prepare("INSERT OR IGNORE INTO solicitudes (grupo_id, usuario_id, creada) VALUES (?, ?, ?)")
+    .bind(grupo.id, yo.id, Date.now()).run();
+  if (nueva.meta.changes > 0) {
+    avisar([await adminDe(db, grupo.id)], { titulo: grupo.nombre, texto: `${completo(yo)} quiere unirse al grupo.`, grupo: grupo.id });
   }
-  return grupoCompleto(db, grupo.id, yo);
+  return { estado: "pendiente", grupo: { id: grupo.id, nombre: grupo.nombre, emoji: grupo.emoji } };
+}
+
+/** Los grupos en los que has pedido entrar y aún no te han aceptado. */
+async function misSolicitudes(db: BaseDatos, yo: string): Promise<Fila[]> {
+  const { results } = await db.prepare(
+    "SELECT g.id, g.nombre, g.emoji, s.creada FROM solicitudes s JOIN grupos g ON g.id = s.grupo_id WHERE s.usuario_id = ? ORDER BY s.creada"
+  ).bind(yo).all();
+  return results;
+}
+
+async function cancelarSolicitud(db: BaseDatos, grupo: string, yo: string): Promise<Fila> {
+  await db.prepare("DELETE FROM solicitudes WHERE grupo_id = ? AND usuario_id = ?").bind(grupo, yo).run();
+  return { cancelada: grupo };
+}
+
+async function aceptar(db: BaseDatos, grupo: string, otro: string, yo: string, avisar: Avisar): Promise<Fila> {
+  await esAdmin(db, grupo, yo);
+  const solicitud = await db.prepare("SELECT 1 FROM solicitudes WHERE grupo_id = ? AND usuario_id = ?").bind(grupo, otro).first();
+  if (!solicitud) throw new Fallo(404, "Esa solicitud ya no está.");
+  const activos = await db.prepare("SELECT COUNT(*) AS n FROM miembros WHERE grupo_id = ? AND salida IS NULL").bind(grupo).first();
+  if ((activos?.n ?? 0) >= MAX_MIEMBROS) throw new Fallo(409, "El grupo está completo.");
+  const antes = await db.prepare("SELECT salida FROM miembros WHERE grupo_id = ? AND usuario_id = ?").bind(grupo, otro).first();
+  const ahora = Date.now();
+  await db.batch([
+    // Si ya había estado (lo abandonó o lo quitaron), vuelve.
+    antes
+      ? db.prepare("UPDATE miembros SET salida = NULL, archivado = 0, entrada = ? WHERE grupo_id = ? AND usuario_id = ?").bind(ahora, grupo, otro)
+      : db.prepare("INSERT INTO miembros (grupo_id, usuario_id, entrada) VALUES (?, ?, ?)").bind(grupo, otro, ahora),
+    db.prepare("DELETE FROM solicitudes WHERE grupo_id = ? AND usuario_id = ?").bind(grupo, otro),
+  ]);
+  const nombre = await nombreGrupo(db, grupo);
+  avisar([otro], { titulo: nombre, texto: `Ya estás dentro de «${nombre}».`, grupo });
+  return grupoCompleto(db, grupo, yo);
+}
+
+async function rechazar(db: BaseDatos, grupo: string, otro: string, yo: string): Promise<Fila> {
+  await esAdmin(db, grupo, yo);
+  await db.prepare("DELETE FROM solicitudes WHERE grupo_id = ? AND usuario_id = ?").bind(grupo, otro).run();
+  return grupoCompleto(db, grupo, yo);
 }
 
 async function grupoDeInvitacion(db: BaseDatos, codigo: string): Promise<Fila> {
@@ -311,7 +406,8 @@ async function grupoDeInvitacion(db: BaseDatos, codigo: string): Promise<Fila> {
 // MARK: - Gastos
 
 /** Lo apunta siempre quien lo paga. */
-async function nuevoGasto(db: BaseDatos, grupo: string, yo: string, cuerpo: Fila): Promise<Fila> {
+async function nuevoGasto(db: BaseDatos, grupo: string, quien: Usuario, cuerpo: Fila, avisar: Avisar): Promise<Fila> {
+  const yo = quien.id;
   await miembroActivo(db, grupo, yo);
   const id = uuid(cuerpo.id, "El gasto");
   const ya = await db.prepare("SELECT grupo_id FROM gastos WHERE id = ?").bind(id).first();
@@ -326,11 +422,18 @@ async function nuevoGasto(db: BaseDatos, grupo: string, yo: string, cuerpo: Fila
       .bind(id, grupo, yo, gasto.concepto, gasto.centimos, gasto.reparto, Date.now()),
     ...insertarPartes(db, id, gasto.partes),
   ]);
+  const titulo = await nombreGrupo(db, grupo);
+  for (const parte of gasto.partes) {
+    if (parte.centimos > 0) {
+      avisar([parte.deudor], { titulo, texto: `${quien.nombre} apuntó «${gasto.concepto}»: tu parte, ${euros(parte.centimos)}.`, grupo });
+    }
+  }
   return grupoCompleto(db, grupo, yo);
 }
 
 /** Solo quien lo apuntó, y solo si nadie ha saldado aún su parte. */
-async function cambiarGasto(db: BaseDatos, grupo: string, idGasto: string, yo: string, cuerpo: Fila): Promise<Fila> {
+async function cambiarGasto(db: BaseDatos, grupo: string, idGasto: string, quien: Usuario, cuerpo: Fila, avisar: Avisar): Promise<Fila> {
+  const yo = quien.id;
   const id = uuid(idGasto, "El gasto");
   await miembroActivo(db, grupo, yo);
   await gastoCambiable(db, grupo, id, yo);
@@ -341,17 +444,27 @@ async function cambiarGasto(db: BaseDatos, grupo: string, idGasto: string, yo: s
     db.prepare("DELETE FROM partes WHERE gasto_id = ?").bind(id),
     ...insertarPartes(db, id, gasto.partes),
   ]);
+  const titulo = await nombreGrupo(db, grupo);
+  for (const parte of gasto.partes) {
+    if (parte.centimos > 0) {
+      avisar([parte.deudor], { titulo, texto: `${quien.nombre} cambió «${gasto.concepto}»: tu parte ahora, ${euros(parte.centimos)}.`, grupo });
+    }
+  }
   return grupoCompleto(db, grupo, yo);
 }
 
-async function borrarGasto(db: BaseDatos, grupo: string, idGasto: string, yo: string): Promise<Fila> {
+async function borrarGasto(db: BaseDatos, grupo: string, idGasto: string, quien: Usuario, avisar: Avisar): Promise<Fila> {
+  const yo = quien.id;
   const id = uuid(idGasto, "El gasto");
   await miembroActivo(db, grupo, yo);
   await gastoCambiable(db, grupo, id, yo);
+  const borrado = await db.prepare("SELECT concepto FROM gastos WHERE id = ?").bind(id).first();
+  const { results: deudores } = await db.prepare("SELECT deudor FROM partes WHERE gasto_id = ? AND centimos > 0").bind(id).all();
   await db.batch([
     db.prepare("DELETE FROM partes WHERE gasto_id = ?").bind(id),
     db.prepare("DELETE FROM gastos WHERE id = ?").bind(id),
   ]);
+  avisar(deudores.map((p) => p.deudor), { titulo: await nombreGrupo(db, grupo), texto: `${quien.nombre} borró «${borrado?.concepto ?? "un gasto"}».`, grupo });
   return grupoCompleto(db, grupo, yo);
 }
 
@@ -409,12 +522,13 @@ function insertarPartes(db: BaseDatos, gasto: string, partes: GastoValido["parte
 // MARK: - Saldar
 
 /** Marca como pagadas unas partes: cada una la puede marcar quien la debe o a quien se le debe, y queda quién fue. */
-async function saldar(db: BaseDatos, grupo: string, yo: string, cuerpo: Fila): Promise<Fila> {
+async function saldar(db: BaseDatos, grupo: string, quien: Usuario, cuerpo: Fila, avisar: Avisar): Promise<Fila> {
+  const yo = quien.id;
   await miembroActivo(db, grupo, yo);
   const ids = listaDeIds(cuerpo.partes);
   const marcas = "?,".repeat(ids.length).slice(0, -1);
   const { results } = await db.prepare(
-    `SELECT p.id, p.deudor, p.saldada_en, g.pagador FROM partes p JOIN gastos g ON g.id = p.gasto_id
+    `SELECT p.id, p.deudor, p.centimos, p.saldada_en, g.pagador, g.concepto FROM partes p JOIN gastos g ON g.id = p.gasto_id
      WHERE g.grupo_id = ? AND p.id IN (${marcas})`
   ).bind(grupo, ...ids).all();
   if (results.length !== ids.length) throw new Fallo(404, "Alguna de esas cuentas ya no existe.");
@@ -428,6 +542,23 @@ async function saldar(db: BaseDatos, grupo: string, yo: string, cuerpo: Fila): P
     await db.batch(abiertas.map((p) =>
       db.prepare("UPDATE partes SET saldada_por = ?, saldada_en = ? WHERE id = ? AND saldada_en IS NULL").bind(yo, ahora, p.id)
     ));
+    // Un aviso por persona: "Paco te ha pagado 20,00 € (cena)" o "Paco ha marcado que le pagaste 20,00 € (cena)".
+    const titulo = await nombreGrupo(db, grupo);
+    const porPersona = new Map<string, { centimos: number; conceptos: string[]; lePagaron: boolean }>();
+    for (const p of abiertas) {
+      const otro = p.deudor === yo ? p.pagador : p.deudor;
+      const suyo = porPersona.get(otro) ?? { centimos: 0, conceptos: [], lePagaron: p.deudor === yo };
+      suyo.centimos += p.centimos;
+      suyo.conceptos.push(p.concepto);
+      porPersona.set(otro, suyo);
+    }
+    for (const [otro, suyo] of porPersona) {
+      const de = suyo.conceptos.length === 1 ? suyo.conceptos[0] : `${suyo.conceptos.length} gastos`;
+      const texto = suyo.lePagaron
+        ? `${quien.nombre} te ha pagado ${euros(suyo.centimos)} (${de}).`
+        : `${quien.nombre} ha marcado que le pagaste ${euros(suyo.centimos)} (${de}).`;
+      avisar([otro], { titulo, texto, grupo });
+    }
   }
   return grupoCompleto(db, grupo, yo);
 }
@@ -456,7 +587,7 @@ async function miembroActivo(db: BaseDatos, grupo: string, yo: string): Promise<
 
 /** El grupo como lo lee la app (Grupo en CheckpointCore): miembros, gastos con sus partes y si lo tienes archivado. */
 async function grupoCompleto(db: BaseDatos, grupo: string, yo: string): Promise<Fila> {
-  const [grupos, miembros, gastos, partes] = await db.batch([
+  const [grupos, miembros, gastos, partes, solicitudes] = await db.batch([
     db.prepare(
       "SELECT g.id, g.nombre, g.emoji, g.creado, g.creado_por, m.archivado FROM grupos g JOIN miembros m ON m.grupo_id = g.id AND m.usuario_id = ? WHERE g.id = ?"
     ).bind(yo, grupo),
@@ -468,9 +599,16 @@ async function grupoCompleto(db: BaseDatos, grupo: string, yo: string): Promise<
     db.prepare(
       "SELECT p.id, p.gasto_id, p.deudor, p.centimos, p.peso, p.saldada_por, p.saldada_en FROM partes p JOIN gastos g ON g.id = p.gasto_id WHERE g.grupo_id = ? ORDER BY p.rowid"
     ).bind(grupo),
+    db.prepare(
+      `SELECT u.id, u.nombre, u.apellido, f.version AS foto FROM solicitudes s JOIN usuarios u ON u.id = s.usuario_id
+       LEFT JOIN fotos f ON f.usuario_id = u.id WHERE s.grupo_id = ? ORDER BY s.creada`
+    ).bind(grupo),
   ]);
   const g = grupos.results[0];
   if (!g) throw new Fallo(404, "Ese grupo no existe.");
+  // Quien lo administra: quien lo creó si sigue dentro; si no, el que más tiempo lleva (van por orden de entrada).
+  const dentro = miembros.results.filter((m) => m.salida === null);
+  const admin = dentro.some((m) => m.id === g.creado_por) ? g.creado_por : dentro[0]?.id ?? null;
   return {
     id: g.id,
     nombre: g.nombre,
@@ -478,6 +616,13 @@ async function grupoCompleto(db: BaseDatos, grupo: string, yo: string): Promise<
     creado: g.creado,
     archivado: g.archivado === 1,
     creadoPor: g.creado_por,
+    admin,
+    // Solo quien lo administra ve quién pide entrar (es quien acepta).
+    ...(admin === yo ? {
+      solicitudes: solicitudes.results.map((u) => ({
+        id: u.id, nombre: u.nombre, apellido: u.apellido, dentro: false, ...(u.foto === null ? {} : { foto: u.foto }),
+      })),
+    } : {}),
     miembros: miembros.results.map((m) => ({
       id: m.id, nombre: m.nombre, apellido: m.apellido, dentro: m.salida === null, ...(m.foto === null ? {} : { foto: m.foto }),
     })),
@@ -498,6 +643,97 @@ async function grupoCompleto(db: BaseDatos, grupo: string, yo: string): Promise<
       })),
     })),
   };
+}
+
+// MARK: - Avisos (notificaciones de Apple)
+
+type Avisar = (para: (string | null | undefined)[], aviso: { titulo: string; texto: string; grupo: string }) => void;
+
+/** Avisa a esas personas en sus dispositivos (nunca a quien hizo la acción). Se manda tras responder: si Apple tarda o
+ *  falla, a quien hizo algo no le afecta. Sin las claves de Apple configuradas, no hace nada. */
+function avisador(ctx: Contexto, yo: string): Avisar {
+  return (para, aviso) => {
+    const env = ctx.env;
+    const destinatarios = [...new Set(para.filter((x): x is string => !!x && x !== yo))];
+    if (!env.APNS_KEY || !env.APNS_KEY_ID || !env.APNS_TEAM_ID || destinatarios.length === 0) return;
+    ctx.waitUntil(enviarAvisos(env, destinatarios, aviso).catch((e) => console.error("Avisos:", e)));
+  };
+}
+
+async function enviarAvisos(env: Env, usuarios: string[], aviso: { titulo: string; texto: string; grupo: string }): Promise<void> {
+  const marcas = "?,".repeat(usuarios.length).slice(0, -1);
+  const { results } = await env.DB.prepare(`SELECT token, entorno FROM dispositivos WHERE usuario_id IN (${marcas})`)
+    .bind(...usuarios).all();
+  if (results.length === 0) return;
+  const firma = await firmaApns(env);
+  const cuerpo = JSON.stringify({
+    aps: { alert: { title: aviso.titulo, body: aviso.texto }, sound: "default", "thread-id": aviso.grupo },
+    grupo: aviso.grupo,
+  });
+  await Promise.all(results.map(async (d) => {
+    const base = env.APNS_URL ?? (d.entorno === "sandbox" ? "https://api.sandbox.push.apple.com" : "https://api.push.apple.com");
+    const r = await fetch(`${base}/3/device/${d.token}`, {
+      method: "POST",
+      headers: {
+        authorization: `bearer ${firma}`,
+        "apns-topic": env.APNS_TOPIC ?? "com.ismaelarco.checkpoint",
+        "apns-push-type": "alert",
+        "apns-priority": "10",
+        "content-type": "application/json",
+      },
+      body: cuerpo,
+    });
+    // Un dispositivo que ya no existe (se borró la app): se olvida.
+    if (r.status === 410 || (r.status === 400 && /BadDeviceToken|DeviceTokenNotForTopic/.test(await r.text()))) {
+      await env.DB.prepare("DELETE FROM dispositivos WHERE token = ?").bind(d.token).run();
+    }
+  }));
+}
+
+/** El permiso para hablar con Apple: un JWT firmado con la clave .p8 (ES256). Vale una hora; se rehace cada 40 minutos. */
+let firmaGuardada: { valor: string; hecha: number; clave: string } | null = null;
+async function firmaApns(env: Env): Promise<string> {
+  if (firmaGuardada && firmaGuardada.clave === env.APNS_KEY_ID && Date.now() - firmaGuardada.hecha < 40 * 60_000) return firmaGuardada.valor;
+  const der = Uint8Array.from(atob(env.APNS_KEY!.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "")), (c) => c.charCodeAt(0));
+  const clave = await crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const cabecera = base64url(new TextEncoder().encode(JSON.stringify({ alg: "ES256", kid: env.APNS_KEY_ID })));
+  const datos = base64url(new TextEncoder().encode(JSON.stringify({ iss: env.APNS_TEAM_ID, iat: Math.floor(Date.now() / 1000) })));
+  const firma = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, clave, new TextEncoder().encode(`${cabecera}.${datos}`));
+  const valor = `${cabecera}.${datos}.${base64url(new Uint8Array(firma))}`;
+  firmaGuardada = { valor, hecha: Date.now(), clave: env.APNS_KEY_ID! };
+  return valor;
+}
+
+function base64url(bytes: Uint8Array): string {
+  let binario = "";
+  for (const b of bytes) binario += String.fromCharCode(b);
+  return btoa(binario).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** Este dispositivo recibe los avisos de esta persona (si antes era de otra, pasa a ser suyo). */
+async function registrarDispositivo(db: BaseDatos, yo: string, cuerpo: Fila): Promise<Fila> {
+  const token = String(cuerpo.token ?? "").toLowerCase();
+  if (!/^[0-9a-f]{32,200}$/.test(token)) throw new Fallo(400, "El dispositivo no es válido.");
+  const entorno = cuerpo.entorno === "sandbox" ? "sandbox" : "produccion";
+  await db.prepare(
+    `INSERT INTO dispositivos (token, usuario_id, entorno, actualizado) VALUES (?, ?, ?, ?)
+     ON CONFLICT(token) DO UPDATE SET usuario_id = excluded.usuario_id, entorno = excluded.entorno, actualizado = excluded.actualizado`
+  ).bind(token, yo, entorno, Date.now()).run();
+  return { registrado: true };
+}
+
+async function olvidarDispositivo(db: BaseDatos, token: string, yo: string): Promise<Fila> {
+  await db.prepare("DELETE FROM dispositivos WHERE token = ? AND usuario_id = ?").bind(String(token).toLowerCase(), yo).run();
+  return { olvidado: true };
+}
+
+/** "20,00 €", "1.234,50 €". */
+function euros(centimos: number): string {
+  return (centimos / 100).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true }) + " €";
+}
+
+function completo(u: Usuario): string {
+  return u.apellido ? `${u.nombre} ${u.apellido}` : u.nombre;
 }
 
 // MARK: - Utilidades
