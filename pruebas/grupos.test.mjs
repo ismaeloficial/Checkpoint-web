@@ -423,3 +423,50 @@ test("avisos: a quien le toca, en sus dispositivos, firmados con la clave de App
   await sol.pedir("POST", `/grupos/${g.id}/saldar`, { partes: [parteUma.id] });
   assert.equal((await avisosPara(deUma, 3))[2].cuerpo.aps.alert.body, "Sol ha marcado que le pagaste 10,00 € (Tarta).");
 });
+
+test("borrar tus datos: solo con todo saldado; sales de tus grupos, sin nombre ni foto, y tu ID deja de valer", async () => {
+  const vera = persona("Vera"), xavi = persona("Xavi"), yago = persona("Yago");
+  for (const p of [vera, xavi, yago]) await p.pedir("PUT", "/yo", { nombre: p.nombre, apellido: "Prueba" });
+  const g = (await vera.pedir("POST", "/grupos", { nombre: "Cenas", emoji: "" })).datos;
+  const inv = (await vera.pedir("POST", `/grupos/${g.id}/invitacion`)).datos;
+  await entrar(vera, xavi, inv.codigo, g.id);
+  await xavi.crudo("PUT", "/yo/foto", new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]));
+  await xavi.pedir("PUT", "/dispositivos", { token: randomBytes(32).toString("hex"), entorno: "produccion" });
+  // Un grupo en el que solo está Xavi (se borra entero) y otro en el que ha pedido entrar.
+  const solo = (await xavi.pedir("POST", "/grupos", { nombre: "Mío", emoji: "" })).datos;
+  await xavi.pedir("POST", `/grupos/${solo.id}/gastos`, { id: randomUUID(), concepto: "Algo", centimos: 500, reparto: "iguales",
+    partes: [{ deudor: xavi.id, centimos: 500 }] });
+  const invSolo = (await xavi.pedir("POST", `/grupos/${solo.id}/invitacion`)).datos;
+  const otro = (await yago.pedir("POST", "/grupos", { nombre: "Fútbol", emoji: "" })).datos;
+  const invOtro = (await yago.pedir("POST", `/grupos/${otro.id}/invitacion`)).datos;
+  await xavi.pedir("POST", `/invitaciones/${invOtro.codigo}`);
+
+  // Xavi le debe a Vera: no puede.
+  await vera.pedir("POST", `/grupos/${g.id}/gastos`, { id: randomUUID(), concepto: "Pizza", centimos: 2000, reparto: "iguales",
+    partes: [{ deudor: vera.id, centimos: 1000 }, { deudor: xavi.id, centimos: 1000 }] });
+  const conDeuda = await xavi.pedir("DELETE", "/yo");
+  assert.equal(conDeuda.estado, 409);
+  assert.equal(conDeuda.datos.error, "No puedes borrar tus datos hasta que tus cuentas estén saldadas en «Cenas».");
+
+  // Lo salda y ya puede.
+  const parte = (await xavi.pedir("GET", `/grupos/${g.id}`)).datos.gastos[0].partes.find((p) => p.deudor === xavi.id);
+  await xavi.pedir("POST", `/grupos/${g.id}/saldar`, { partes: [parte.id] });
+  const borrado = await xavi.pedir("DELETE", "/yo");
+  assert.equal(borrado.estado, 200);
+
+  // Para Vera: ya no está, sin nombre ni foto, pero lo de la pizza sigue en el historial.
+  const deVera = (await vera.pedir("GET", `/grupos/${g.id}`)).datos;
+  const antiguo = deVera.miembros.find((m) => m.id === xavi.id);
+  assert.equal(antiguo.dentro, false);
+  assert.equal(antiguo.nombre, "Antiguo miembro");
+  assert.equal(antiguo.apellido, "");
+  assert.equal(antiguo.foto ?? null, null);
+  assert.equal(deVera.gastos.length, 1);
+  assert.equal((await vera.crudo("GET", `/fotos/${xavi.id}`)).estado, 404);
+  // Yago ya no ve su solicitud, y el grupo en el que solo estaba Xavi ya no existe (ni su enlace).
+  assert.deepEqual((await yago.pedir("GET", `/grupos/${otro.id}`)).datos.solicitudes, []);
+  assert.equal((await yago.pedir("GET", `/invitaciones/${invSolo.codigo}`)).estado, 404);
+  // Su ID ya no vale para nada, ni para volver a darse de alta con él.
+  assert.equal((await xavi.pedir("GET", "/grupos")).estado, 401);
+  assert.equal((await xavi.pedir("PUT", "/yo", { nombre: "Xavi" })).estado, 401);
+});

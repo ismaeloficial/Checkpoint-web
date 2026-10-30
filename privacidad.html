@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Checkpoint · Privacidad</title>
-  <meta name="description" content="Política de privacidad de Checkpoint: tus cuentas se quedan en tu dispositivo.">
+  <meta name="description" content="Política de privacidad de Checkpoint: tus cuentas se quedan en tu dispositivo; los grupos, solo entre sus miembros.">
   <link rel="icon" href="icono.png">
   <link rel="apple-touch-icon" href="icono.png">
   <link rel="stylesheet" href="estilos.css">
@@ -19,18 +19,19 @@
   <main>
     <section class="tarjeta">
       <h2>En resumen</h2>
-      <p>Checkpoint <strong>no recoge ni guarda en ningún servidor propio</strong> nada de lo que apuntas. No hay cuentas de usuario, ni anuncios, ni analítica, ni rastreo. Tus cuentas se guardan en tu dispositivo y, si usas iCloud, en tu iCloud privado, para tenerlas en todos tus dispositivos. Esa parte de iCloud es solo tuya: ni yo ni nadie más podemos verla.</p>
-      <p class="fecha">Última actualización: 14 de octubre de 2026.</p>
+      <p>Checkpoint no tiene anuncios, ni analítica, ni rastreo, y no vende ni cede tus datos a nadie. <strong>Tus cuentas personales no pasan por ningún servidor propio</strong>: se guardan en tu dispositivo y, si usas iCloud, en tu iCloud privado, que solo ves tú.</p>
+      <p>Lo único que pasa por el servidor de Checkpoint son los <strong>Grupos</strong>, si decides usarlos: lo que se apunta en un grupo tiene que estar en un sitio común para que lo veáis todos sus miembros. Más abajo se explica qué se guarda, quién lo ve y cómo borrarlo.</p>
+      <p class="fecha">Última actualización: 30 de octubre de 2026.</p>
     </section>
 
     <section class="tarjeta">
-      <h2>Qué guarda la app y dónde</h2>
+      <h2>Tus cuentas</h2>
 
-      <h3>Tus cuentas</h3>
+      <h3>En tu dispositivo</h3>
       <p>Frentes, bolsillos, personas, apuntes, recurrentes, checkpoints y el nombre y apellido de tu perfil se guardan en tu dispositivo. Nadie más tiene acceso a ellos, tampoco yo.</p>
 
       <h3>Sincronización con iCloud</h3>
-      <p>Si tienes iniciada sesión en iCloud, Checkpoint guarda una copia de tus cuentas en la base de datos privada de tu iCloud, gestionada por Apple, para que el iPhone y el Mac muestren lo mismo. Solo puedes acceder tú, con tu Apple ID. Sin iCloud, todo se queda únicamente en el dispositivo.</p>
+      <p>Si tienes iniciada sesión en iCloud, Checkpoint guarda una copia de tus cuentas en la base de datos privada de tu iCloud, gestionada por Apple, para que todos tus dispositivos muestren lo mismo. También guarda ahí tu foto de perfil, tu identificador de los grupos y el bolsillo que eliges para cada grupo. Solo puedes acceder tú, con tu Apple ID. Sin iCloud, todo se queda únicamente en el dispositivo.</p>
 
       <h3>Tu código de 6 cifras</h3>
       <p>El código nunca se guarda tal cual: se guarda una huella cifrada en el llavero seguro del sistema, que sirve para comprobarlo pero no para recuperarlo. Face ID y Touch ID los gestiona el sistema: la app solo recibe si el desbloqueo ha ido bien o no, nunca tus datos biométricos.</p>
@@ -40,11 +41,42 @@
     </section>
 
     <section class="tarjeta">
+      <h2>Grupos</h2>
+      <p>Los grupos sirven para llevar las cuentas entre varias personas (un piso, un viaje…). Para que todos vean lo mismo, lo de cada grupo se guarda en el servidor de Checkpoint. Solo se usa si creas un grupo o pides entrar en uno: hasta entonces, la app no se conecta al servidor.</p>
+
+      <h3>Qué se guarda en el servidor</h3>
+      <ul>
+        <li><strong>Quién eres para los grupos:</strong> un identificador aleatorio que crea la app y una huella de una clave secreta que solo tiene tu dispositivo. No hay cuentas, ni correo, ni contraseña, ni teléfono.</li>
+        <li><strong>Tu nombre y apellido</strong>, tal y como los pones en tu perfil, y tu <strong>foto de perfil</strong> si eliges poner una (reducida a 256 píxeles).</li>
+        <li><strong>Los grupos:</strong> su nombre y emoji, quién está en cada uno y desde cuándo, y quién ha pedido entrar.</li>
+        <li><strong>Los gastos de cada grupo:</strong> concepto, importe, fecha, quién pagó, la parte de cada uno y quién marcó cada parte como pagada. También qué partes pagadas ha llevado ya tu app a tu bolsillo, para no contarlas dos veces si usas Checkpoint en varios dispositivos (no se guarda qué bolsillo es ni cuánto tienes en él).</li>
+        <li><strong>La dirección de avisos de cada dispositivo</strong> (la que da Apple para enviar notificaciones), si permites los avisos.</li>
+      </ul>
+      <p>No se guardan tus cuentas personales, ni tus saldos, ni tu código, ni tu dirección IP.</p>
+
+      <h3>Quién lo ve</h3>
+      <p>Lo de un grupo solo lo ven sus miembros: tu nombre, tu foto y lo que se apunta en ese grupo. Quien administra un grupo ve también el nombre y la foto de quien pide entrar, para decidir si lo acepta. Nadie entra en un grupo solo con el enlace: siempre tiene que aceptarlo quien lo administra.</p>
+      <p>Como responsable del servicio, tengo acceso técnico a la base de datos. Solo accedería para mantenerla o para resolver un problema que tú me pidas, nunca para otros fines.</p>
+
+      <h3>Dónde se guarda</h3>
+      <p>En Cloudflare, que aloja la web y el servidor de Checkpoint, en una base de datos ubicada en la Unión Europea. Cloudflare trata los datos solo para prestar ese servicio.</p>
+
+      <h3>Avisos</h3>
+      <p>Si los permites, el servidor te avisa de lo que te afecta en tus grupos: alguien pide entrar, te aceptan, un gasto en el que tienes parte o un pago. Los avisos llegan a través del servicio de notificaciones de Apple, que recibe su texto (el nombre del grupo, quién, el concepto y el importe) solo para hacértelo llegar. Puedes desactivarlos cuando quieras en los ajustes de notificaciones de tu dispositivo.</p>
+
+      <h3>Cuánto tiempo y cómo borrarlo</h3>
+      <p>Se guarda mientras uses los grupos. En <strong>⋯ → Perfil → Borrar mis datos de los grupos</strong> sales de todos tus grupos y se borran del servidor tu nombre, tu foto, tus dispositivos y tus solicitudes, y tu identificador deja de valer. Igual que para abandonar un grupo, hace falta tener las cuentas de tus grupos saldadas. Los gastos que apuntaste siguen en el historial de los demás, porque forman parte de sus cuentas, pero ya sin tu nombre (aparecerás como «Antiguo miembro»). Un grupo en el que no queda nadie se borra entero.</p>
+      <p>Al abandonar un grupo, o si te quitan de él, dejas de verlo; tu nombre sigue en su historial mientras no borres tus datos.</p>
+    </section>
+
+    <section class="tarjeta">
       <h2>Lo que tú decides compartir</h2>
       <ul>
         <li><strong>Tarjeta y PDF de cuentas.</strong> Se crean en tu dispositivo y los envías tú con la app que elijas (WhatsApp, correo…). A partir de ahí se rigen por la privacidad de esa app.</li>
+        <li><strong>Enlaces de cuentas.</strong> Las cuentas van dentro del propio enlace: la web de Checkpoint lo abre en la app sin verlas ni guardarlas.</li>
+        <li><strong>Invitaciones a grupos.</strong> La tarjeta y el enlace de una invitación los envías tú. El enlace solo sirve para pedir entrar.</li>
         <li><strong>Copia de seguridad.</strong> Es un archivo con todas tus cuentas, sin cifrar, que guardas o envías donde tú quieras. Guárdala en un sitio seguro. No incluye tu código.</li>
-        <li><strong>Fotos.</strong> La app solo pide permiso para añadir a tus fotos una tarjeta si eliges «Guardar imagen». Nunca lee tus fotos.</li>
+        <li><strong>Fotos.</strong> Para tu foto de perfil eliges una imagen con el selector del sistema: la app solo recibe esa imagen, no el resto de tus fotos. Y solo pide permiso para añadir a tus fotos una tarjeta si eliges «Guardar imagen».</li>
       </ul>
     </section>
 
@@ -55,12 +87,18 @@
 
     <section class="tarjeta">
       <h2>Borrar tus datos</h2>
-      <p>En el menú <strong>⋯ → Borrar todos los datos</strong> se borra todo, también de tu iCloud y de tus otros dispositivos, y el código del dispositivo. También puedes borrar lo que Checkpoint guarda en iCloud desde los ajustes de iCloud de tu dispositivo, en «Gestionar almacenamiento».</p>
+      <p>En el menú <strong>⋯ → Borrar todos los datos</strong> se borran tus cuentas, también de tu iCloud y de tus otros dispositivos, y el código del dispositivo. También puedes borrar lo que Checkpoint guarda en iCloud desde los ajustes de iCloud de tu dispositivo, en «Gestionar almacenamiento».</p>
+      <p>Tus grupos se borran aparte, en <strong>⋯ → Perfil → Borrar mis datos de los grupos</strong>, como se explica en el apartado de Grupos.</p>
+    </section>
+
+    <section class="tarjeta">
+      <h2>Tus derechos</h2>
+      <p>Los datos de los grupos se tratan para darte el servicio que pides al usarlos. Puedes consultarlos en la propia app, corregir tu nombre o tu foto en tu perfil y borrarlos como se explica arriba. Para cualquier otra petición (una copia de tus datos, por ejemplo), escríbeme. Si crees que no se han tratado bien, puedes reclamar ante la Agencia Española de Protección de Datos (aepd.es).</p>
     </section>
 
     <section class="tarjeta">
       <h2>Contacto</h2>
-      <p>Checkpoint la desarrolla Ismael Arco González. Para cualquier duda sobre privacidad:</p>
+      <p>Checkpoint la desarrolla Ismael Arco González, responsable de los datos de los grupos. Para cualquier duda sobre privacidad:</p>
       <a class="boton" href="mailto:ismaelarco.oficial@gmail.com?subject=Checkpoint%20%C2%B7%20Privacidad">Escribir un correo</a>
       <p class="correo">ismaelarco.oficial@gmail.com</p>
       <p>Si esta política cambia, la nueva versión se publicará en esta misma página con su fecha.</p>

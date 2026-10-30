@@ -50,6 +50,8 @@ const MAX_CUERPO = 100_000;
 const MAX_FOTO = 300_000;
 const REPARTOS = ["iguales", "exactas", "partes"];
 const NO_ABANDONAR = "No puedes abandonar el grupo hasta que tus cuentas estén saldadas.";
+/** Como ven los demás a quien ha borrado sus datos. */
+const BORRADO = "Antiguo miembro";
 
 /** Un error que se le enseña a la persona tal cual. */
 class Fallo extends Error {
@@ -77,6 +79,7 @@ async function atender(metodo: string, ruta: string[], ctx: Contexto): Promise<R
   if (a === "yo" && ruta.length === 1 && metodo === "PUT") return registrar(ctx);
 
   const yo = await identificar(ctx);
+  if (a === "yo" && ruta.length === 1 && metodo === "DELETE") return json(await borrarme(db, yo.id));
   // La foto va tal cual (no en JSON).
   if (a === "yo" && b === "foto" && ruta.length === 2) {
     if (metodo === "PUT") return json(await subirFoto(db, yo.id, ctx.request));
@@ -137,6 +140,46 @@ async function registrar(ctx: Contexto): Promise<Response> {
       .bind(id, huellaClave, nombre, apellido, Date.now()).run();
   }
   return json({ id, nombre, apellido });
+}
+
+/** Borrar tus datos (desde tu perfil en la app): sales de todos tus grupos y se borran tu nombre, tu foto, tus
+ *  dispositivos y lo que habías pedido. Lo que apuntaste sigue en el historial de los demás, ya sin tu nombre, y un
+ *  grupo en el que no queda nadie se borra entero. Como al abandonar, solo con las cuentas saldadas. Tu ID deja de
+ *  valer: si vuelves a usar los grupos, la app se inventa otro. */
+async function borrarme(db: BaseDatos, yo: string): Promise<Fila> {
+  const { results: dentro } = await db.prepare(
+    "SELECT g.id, g.nombre FROM miembros m JOIN grupos g ON g.id = m.grupo_id WHERE m.usuario_id = ? AND m.salida IS NULL"
+  ).bind(yo).all();
+  for (const grupo of dentro) {
+    if (await tienePendiente(db, grupo.id, yo)) {
+      throw new Fallo(409, `No puedes borrar tus datos hasta que tus cuentas estén saldadas en «${grupo.nombre}».`);
+    }
+  }
+  await db.batch([
+    db.prepare("UPDATE miembros SET salida = ? WHERE usuario_id = ? AND salida IS NULL").bind(Date.now(), yo),
+    db.prepare("DELETE FROM solicitudes WHERE usuario_id = ?").bind(yo),
+    db.prepare("DELETE FROM dispositivos WHERE usuario_id = ?").bind(yo),
+    db.prepare("DELETE FROM fotos WHERE usuario_id = ?").bind(yo),
+    // La fila se queda (los gastos de los demás la nombran), pero sin nombre y con una clave que nunca vale.
+    db.prepare("UPDATE usuarios SET nombre = ?, apellido = '', clave_hash = 'borrado' WHERE id = ?").bind(BORRADO, yo),
+  ]);
+  for (const grupo of dentro) {
+    const queda = await db.prepare("SELECT 1 FROM miembros WHERE grupo_id = ? AND salida IS NULL").bind(grupo.id).first();
+    if (!queda) await borrarGrupo(db, grupo.id);
+  }
+  return { borrado: true };
+}
+
+/** Un grupo entero, con todo lo suyo (solo cuando ya no queda nadie dentro). */
+async function borrarGrupo(db: BaseDatos, grupo: string): Promise<void> {
+  await db.batch([
+    db.prepare("DELETE FROM aplicados WHERE parte_id IN (SELECT p.id FROM partes p JOIN gastos g ON g.id = p.gasto_id WHERE g.grupo_id = ?)").bind(grupo),
+    db.prepare("DELETE FROM partes WHERE gasto_id IN (SELECT id FROM gastos WHERE grupo_id = ?)").bind(grupo),
+    db.prepare("DELETE FROM gastos WHERE grupo_id = ?").bind(grupo),
+    db.prepare("DELETE FROM solicitudes WHERE grupo_id = ?").bind(grupo),
+    db.prepare("DELETE FROM miembros WHERE grupo_id = ?").bind(grupo),
+    db.prepare("DELETE FROM grupos WHERE id = ?").bind(grupo),
+  ]);
 }
 
 async function identificar(ctx: Contexto): Promise<Usuario> {
