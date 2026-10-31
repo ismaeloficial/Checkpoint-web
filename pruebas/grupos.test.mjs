@@ -470,3 +470,37 @@ test("borrar tus datos: solo con todo saldado; sales de tus grupos, sin nombre n
   assert.equal((await xavi.pedir("GET", "/grupos")).estado, 401);
   assert.equal((await xavi.pedir("PUT", "/yo", { nombre: "Xavi" })).estado, 401);
 });
+
+test("foto del grupo: la pone cualquiera de dentro y la ven los de dentro, quien pide entrar y quien tiene el enlace", async () => {
+  const nora = persona("Nora"), oto = persona("Oto"), pia = persona("Pía"), extrano = persona("Extraño");
+  for (const p of [nora, oto, pia, extrano]) await p.pedir("PUT", "/yo", { nombre: p.nombre });
+  const g = (await nora.pedir("POST", "/grupos", { nombre: "Piso", emoji: "🏠" })).datos;
+  assert.equal(g.foto, undefined);
+  const inv = (await nora.pedir("POST", `/grupos/${g.id}/invitacion`)).datos;
+  await entrar(nora, oto, inv.codigo, g.id);
+
+  // Oto (no lo administra) le pone foto: sale su versión en el grupo, para todos.
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...randomBytes(1500)]);
+  assert.equal((await oto.crudo("PUT", `/grupos/${g.id}/foto`, new Uint8Array([1, 2, 3, 4]))).estado, 415);
+  const subida = await oto.crudo("PUT", `/grupos/${g.id}/foto`, jpeg);
+  assert.equal(subida.estado, 200);
+  const deNora = (await nora.pedir("GET", `/grupos/${g.id}`)).datos;
+  assert.ok(deNora.foto > 0);
+  assert.deepEqual((await nora.crudo("GET", `/grupos/${g.id}/foto`)).bytes, jpeg);
+
+  // Con el enlace se ve (también antes de pedir entrar) y quien ha pedido entrar la ve; quien no tiene nada, no.
+  assert.equal((await pia.pedir("GET", `/invitaciones/${inv.codigo}`)).datos.foto, deNora.foto);
+  assert.deepEqual((await pia.crudo("GET", `/invitaciones/${inv.codigo}/foto`)).bytes, jpeg);
+  assert.equal((await pia.crudo("GET", `/grupos/${g.id}/foto`)).estado, 404);
+  const pedida = await pia.pedir("POST", `/invitaciones/${inv.codigo}`);
+  assert.equal(pedida.datos.grupo.foto, deNora.foto);
+  assert.equal((await pia.pedir("GET", "/solicitudes")).datos[0].foto, deNora.foto);
+  assert.equal((await pia.crudo("GET", `/grupos/${g.id}/foto`)).estado, 200);
+  assert.equal((await extrano.crudo("GET", `/grupos/${g.id}/foto`)).estado, 404);
+  assert.equal((await extrano.crudo("PUT", `/grupos/${g.id}/foto`, jpeg)).estado, 404);
+
+  // Se puede quitar (y vuelve el emoji o el dibujo de grupo sin foto).
+  assert.equal((await nora.crudo("DELETE", `/grupos/${g.id}/foto`)).estado, 200);
+  assert.equal((await nora.pedir("GET", `/grupos/${g.id}`)).datos.foto, undefined);
+  assert.equal((await nora.crudo("GET", `/grupos/${g.id}/foto`)).estado, 404);
+});

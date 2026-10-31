@@ -86,6 +86,14 @@ async function atender(metodo: string, ruta: string[], ctx: Contexto): Promise<R
     if (metodo === "DELETE") return json(await borrarFoto(db, yo.id));
   }
   if (a === "fotos" && ruta.length === 2 && metodo === "GET") return verFoto(db, b, yo.id);
+  if (a === "grupos" && c === "foto" && ruta.length === 3) {
+    if (metodo === "PUT") return json(await subirFotoGrupo(db, b, yo.id, ctx.request));
+    if (metodo === "DELETE") return json(await borrarFotoGrupo(db, b, yo.id));
+    if (metodo === "GET") return verFotoGrupo(db, b, yo.id);
+  }
+  if (a === "invitaciones" && c === "foto" && ruta.length === 3 && metodo === "GET") {
+    return imagen(await fotoDeGrupo(db, (await grupoDeInvitacion(db, b)).id));
+  }
   const cuerpo = metodo === "GET" || metodo === "DELETE" ? {} : await leerJSON(ctx.request);
   const avisar = avisador(ctx, yo.id);
 
@@ -178,6 +186,7 @@ async function borrarGrupo(db: BaseDatos, grupo: string): Promise<void> {
     db.prepare("DELETE FROM gastos WHERE grupo_id = ?").bind(grupo),
     db.prepare("DELETE FROM solicitudes WHERE grupo_id = ?").bind(grupo),
     db.prepare("DELETE FROM miembros WHERE grupo_id = ?").bind(grupo),
+    db.prepare("DELETE FROM fotos_grupos WHERE grupo_id = ?").bind(grupo),
     db.prepare("DELETE FROM grupos WHERE id = ?").bind(grupo),
   ]);
 }
@@ -303,6 +312,17 @@ async function tienePendiente(db: BaseDatos, grupo: string, quien: string): Prom
 
 /** La foto de perfil, tal cual (JPEG o PNG, pequeña). Devuelve su versión nueva. */
 async function subirFoto(db: BaseDatos, yo: string, request: Request): Promise<Fila> {
+  const { datos, tipo } = await leerImagen(request);
+  const version = Date.now();
+  await db.prepare(
+    `INSERT INTO fotos (usuario_id, datos, tipo, version) VALUES (?, ?, ?, ?)
+     ON CONFLICT(usuario_id) DO UPDATE SET datos = excluded.datos, tipo = excluded.tipo, version = excluded.version`
+  ).bind(yo, datos, tipo, version).run();
+  return { version };
+}
+
+/** Una imagen enviada tal cual: pequeña y JPEG o PNG. Se guarda en base64. */
+async function leerImagen(request: Request): Promise<{ datos: string; tipo: string }> {
   const bytes = new Uint8Array(await request.arrayBuffer());
   if (bytes.length === 0 || bytes.length > MAX_FOTO) throw new Fallo(413, "La foto es demasiado grande.");
   const esJPEG = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
@@ -310,12 +330,49 @@ async function subirFoto(db: BaseDatos, yo: string, request: Request): Promise<F
   if (!esJPEG && !esPNG) throw new Fallo(415, "La foto tiene que ser JPEG o PNG.");
   let binario = "";
   for (let k = 0; k < bytes.length; k += 0x8000) binario += String.fromCharCode(...bytes.subarray(k, k + 0x8000));
-  const version = Date.now();
+  return { datos: btoa(binario), tipo: esJPEG ? "image/jpeg" : "image/png" };
+}
+
+/** Una foto guardada, tal cual, para que la app la guarde en su caché (cambia de versión con cada foto nueva). */
+function imagen(foto: Fila | null): Response {
+  if (!foto) throw new Fallo(404, "No tiene foto.");
+  const binario = atob(foto.datos);
+  const bytes = new Uint8Array(binario.length);
+  for (let k = 0; k < binario.length; k++) bytes[k] = binario.charCodeAt(k);
+  return new Response(bytes, {
+    headers: { "Content-Type": foto.tipo, "Cache-Control": "private, max-age=31536000", ETag: `"${foto.version}"` },
+  });
+}
+
+// La foto de un grupo: la pone o la quita cualquiera de dentro (como el nombre y el emoji) y la ven los de dentro, los
+// que ya no están (en su historial), quien ha pedido entrar y quien tiene el enlace.
+
+async function subirFotoGrupo(db: BaseDatos, grupo: string, yo: string, request: Request): Promise<Fila> {
+  await miembroActivo(db, grupo, yo);
+  const { datos, tipo } = await leerImagen(request);
   await db.prepare(
-    `INSERT INTO fotos (usuario_id, datos, tipo, version) VALUES (?, ?, ?, ?)
-     ON CONFLICT(usuario_id) DO UPDATE SET datos = excluded.datos, tipo = excluded.tipo, version = excluded.version`
-  ).bind(yo, btoa(binario), esJPEG ? "image/jpeg" : "image/png", version).run();
-  return { version };
+    `INSERT INTO fotos_grupos (grupo_id, datos, tipo, version) VALUES (?, ?, ?, ?)
+     ON CONFLICT(grupo_id) DO UPDATE SET datos = excluded.datos, tipo = excluded.tipo, version = excluded.version`
+  ).bind(grupo, datos, tipo, Date.now()).run();
+  return grupoCompleto(db, grupo, yo);
+}
+
+async function borrarFotoGrupo(db: BaseDatos, grupo: string, yo: string): Promise<Fila> {
+  await miembroActivo(db, grupo, yo);
+  await db.prepare("DELETE FROM fotos_grupos WHERE grupo_id = ?").bind(grupo).run();
+  return grupoCompleto(db, grupo, yo);
+}
+
+async function verFotoGrupo(db: BaseDatos, grupo: string, yo: string): Promise<Response> {
+  const puede = await db.prepare(
+    "SELECT 1 FROM miembros WHERE grupo_id = ? AND usuario_id = ? UNION SELECT 1 FROM solicitudes WHERE grupo_id = ? AND usuario_id = ? LIMIT 1"
+  ).bind(grupo, yo, grupo, yo).first();
+  if (!puede) throw new Fallo(404, "No existe.");
+  return imagen(await fotoDeGrupo(db, grupo));
+}
+
+function fotoDeGrupo(db: BaseDatos, grupo: string): Promise<Fila | null> {
+  return db.prepare("SELECT datos, tipo, version FROM fotos_grupos WHERE grupo_id = ?").bind(grupo).first();
 }
 
 async function borrarFoto(db: BaseDatos, yo: string): Promise<Fila> {
@@ -334,14 +391,7 @@ async function verFoto(db: BaseDatos, usuario: string, yo: string): Promise<Resp
     ).bind(yo, usuario, yo, usuario).first();
     if (!comparten) throw new Fallo(404, "No existe.");
   }
-  const foto = await db.prepare("SELECT datos, tipo, version FROM fotos WHERE usuario_id = ?").bind(usuario).first();
-  if (!foto) throw new Fallo(404, "No tiene foto.");
-  const binario = atob(foto.datos);
-  const bytes = new Uint8Array(binario.length);
-  for (let k = 0; k < binario.length; k++) bytes[k] = binario.charCodeAt(k);
-  return new Response(bytes, {
-    headers: { "Content-Type": foto.tipo, "Cache-Control": "private, max-age=31536000", ETag: `"${foto.version}"` },
-  });
+  return imagen(await db.prepare("SELECT datos, tipo, version FROM fotos WHERE usuario_id = ?").bind(usuario).first());
 }
 
 // MARK: - Invitaciones
@@ -378,6 +428,7 @@ async function verInvitacion(db: BaseDatos, codigo: string, yo: string): Promise
     id: grupo.id,
     nombre: grupo.nombre,
     emoji: grupo.emoji,
+    ...(grupo.foto === null ? {} : { foto: grupo.foto }),
     miembros: results.map((u) => ({
       id: u.id, nombre: u.nombre, apellido: u.apellido, dentro: true, ...(u.foto === null ? {} : { foto: u.foto }),
     })),
@@ -397,15 +448,19 @@ async function unirse(db: BaseDatos, codigo: string, yo: Usuario, avisar: Avisar
   if (nueva.meta.changes > 0) {
     avisar([await adminDe(db, grupo.id)], { titulo: grupo.nombre, texto: `${completo(yo)} quiere unirse al grupo.`, grupo: grupo.id });
   }
-  return { estado: "pendiente", grupo: { id: grupo.id, nombre: grupo.nombre, emoji: grupo.emoji } };
+  return {
+    estado: "pendiente",
+    grupo: { id: grupo.id, nombre: grupo.nombre, emoji: grupo.emoji, ...(grupo.foto === null ? {} : { foto: grupo.foto }) },
+  };
 }
 
 /** Los grupos en los que has pedido entrar y aún no te han aceptado. */
 async function misSolicitudes(db: BaseDatos, yo: string): Promise<Fila[]> {
   const { results } = await db.prepare(
-    "SELECT g.id, g.nombre, g.emoji, s.creada FROM solicitudes s JOIN grupos g ON g.id = s.grupo_id WHERE s.usuario_id = ? ORDER BY s.creada"
+    `SELECT g.id, g.nombre, g.emoji, s.creada, fg.version AS foto FROM solicitudes s JOIN grupos g ON g.id = s.grupo_id
+     LEFT JOIN fotos_grupos fg ON fg.grupo_id = g.id WHERE s.usuario_id = ? ORDER BY s.creada`
   ).bind(yo).all();
-  return results;
+  return results.map(({ foto, ...resto }) => (foto === null ? resto : { ...resto, foto }));
 }
 
 async function cancelarSolicitud(db: BaseDatos, grupo: string, yo: string): Promise<Fila> {
@@ -441,7 +496,9 @@ async function rechazar(db: BaseDatos, grupo: string, otro: string, yo: string):
 
 async function grupoDeInvitacion(db: BaseDatos, codigo: string): Promise<Fila> {
   if (!/^[A-Za-z0-9]{6,32}$/.test(codigo ?? "")) throw new Fallo(404, "La invitación no es válida.");
-  const grupo = await db.prepare("SELECT id, nombre, emoji FROM grupos WHERE invitacion = ?").bind(codigo).first();
+  const grupo = await db.prepare(
+    "SELECT g.id, g.nombre, g.emoji, fg.version AS foto FROM grupos g LEFT JOIN fotos_grupos fg ON fg.grupo_id = g.id WHERE g.invitacion = ?"
+  ).bind(codigo).first();
   if (!grupo) throw new Fallo(404, "La invitación no es válida o el grupo ya no existe.");
   return grupo;
 }
@@ -632,7 +689,8 @@ async function miembroActivo(db: BaseDatos, grupo: string, yo: string): Promise<
 async function grupoCompleto(db: BaseDatos, grupo: string, yo: string): Promise<Fila> {
   const [grupos, miembros, gastos, partes, solicitudes] = await db.batch([
     db.prepare(
-      "SELECT g.id, g.nombre, g.emoji, g.creado, g.creado_por, m.archivado FROM grupos g JOIN miembros m ON m.grupo_id = g.id AND m.usuario_id = ? WHERE g.id = ?"
+      `SELECT g.id, g.nombre, g.emoji, g.creado, g.creado_por, m.archivado, fg.version AS foto FROM grupos g
+       JOIN miembros m ON m.grupo_id = g.id AND m.usuario_id = ? LEFT JOIN fotos_grupos fg ON fg.grupo_id = g.id WHERE g.id = ?`
     ).bind(yo, grupo),
     db.prepare(
       `SELECT u.id, u.nombre, u.apellido, m.salida, f.version AS foto FROM miembros m JOIN usuarios u ON u.id = m.usuario_id
@@ -656,6 +714,7 @@ async function grupoCompleto(db: BaseDatos, grupo: string, yo: string): Promise<
     id: g.id,
     nombre: g.nombre,
     emoji: g.emoji,
+    ...(g.foto === null ? {} : { foto: g.foto }),
     creado: g.creado,
     archivado: g.archivado === 1,
     creadoPor: g.creado_por,
