@@ -1,6 +1,6 @@
 // La página de una invitación a un grupo: checkpoint.iarg.dev/g/<código>.
 // Con Checkpoint instalada, el enlace abre directamente la app (es un enlace universal) y esta página no se ve.
-// Sin la app: dice a qué grupo te invitan y cómo descargarla (App Store y Google Play).
+// Sin la app: dice a qué grupo te invitan y cómo descargarla (los enlaces de las tiendas están en /descarga.js).
 
 interface BaseDatos {
   prepare(sql: string): { bind(...v: unknown[]): { first<T = Record<string, any>>(): Promise<T | null> } };
@@ -11,10 +11,6 @@ interface Contexto {
 }
 
 const WEB = "https://checkpoint.iarg.dev";
-
-// Dónde se descarga la app. Vacío: aún no está publicada en esa tienda.
-const APP_STORE = "";
-const GOOGLE_PLAY = "";
 
 export const onRequest = async (ctx: Contexto): Promise<Response> => {
   const codigo = String(ctx.params.codigo ?? "");
@@ -38,13 +34,6 @@ function pagina(codigo: string, grupo: Record<string, any> | null): string {
   const detalle = grupo
     ? `${grupo.emoji ? escapar(grupo.emoji) + " " : ""}Un grupo de Checkpoint con ${grupo.miembros} ${grupo.miembros === 1 ? "persona" : "personas"}. Para entrar, ábrelo con la app.`
     : "Puede que el grupo ya no exista o que el enlace esté incompleto. Pide que te lo vuelvan a enviar.";
-  const tiendas = [
-    APP_STORE ? `<a class="boton" href="${APP_STORE}">Descargar en el App Store</a>` : "",
-    GOOGLE_PLAY ? `<a class="boton" href="${GOOGLE_PLAY}">Descargar en Google Play</a>` : "",
-  ].join("\n      ");
-  const sinTiendas = !APP_STORE && !GOOGLE_PLAY
-    ? `<p>Checkpoint llegará muy pronto al App Store y a Google Play.</p>`
-    : "";
   // Lo que enseñan WhatsApp, Mensajes… si se pega el enlace suelto: el nombre del grupo y una imagen de invitación
   // (en petróleo, nada que ver con la tarjeta de unas cuentas).
   const tituloPrevia = grupo ? `Únete a «${escapar(grupo.nombre)}» en Checkpoint` : "Invitación a un grupo de Checkpoint";
@@ -85,12 +74,15 @@ function pagina(codigo: string, grupo: Record<string, any> | null): string {
       <p>Si el enlace te ha traído aquí en vez de a la app, entra desde este botón.</p>
       <a class="boton" href="checkpoint://grupo/${escapar(codigo)}">Abrir en Checkpoint</a>
       <h3>¿Aún no la tienes?</h3>
-      ${sinTiendas}${tiendas}` : ""}
+      <p data-sin-descarga>Checkpoint llegará muy pronto al App Store y a Google Play.</p>
+      <a class="boton" data-descarga="appStore" hidden>Descargar en el App Store</a>
+      <a class="boton" data-descarga="googlePlay" hidden>Descargar en Google Play</a>` : ""}
     </section>
   </main>
   <footer>
     <a href="/">Ayuda</a> · <a href="/privacidad">Política de privacidad</a> · <span>© 2026 Ismael Arco González</span>
   </footer>
+  <script src="/descarga.js"></script>
 </body>
 </html>`;
 }

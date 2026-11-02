@@ -3,8 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Checkpoint · Soporte</title>
-  <meta name="description" content="Ayuda y contacto de Checkpoint, la app para llevar tus cuentas sin sumar a mano.">
+  <title>Checkpoint · Tus cuentas, sin sumar a mano</title>
+  <meta name="description" content="Checkpoint: lleva las cuentas con tu gente, tus grupos y tu dinero sin sumar a mano. Gratis para iPhone y Mac. Ayuda y contacto.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Checkpoint">
+  <meta property="og:title" content="Checkpoint · Tus cuentas, sin sumar a mano">
+  <meta property="og:description" content="Lo que te deben, lo que debes y cuánto dinero tienes de verdad. Gratis para iPhone y Mac.">
+  <meta property="og:image" content="https://checkpoint.iarg.dev/icono.png">
   <link rel="icon" href="icono.png">
   <link rel="apple-touch-icon" href="icono.png">
   <link rel="stylesheet" href="estilos.css">
@@ -18,6 +23,28 @@
 
   <main>
     <section class="tarjeta">
+      <h2>Lo que te deben, lo que debes y cuánto tienes de verdad</h2>
+      <p>Checkpoint es la app para llevar las cuentas con tu gente sin libretas ni notas: apuntas en una línea y ella suma, reparte y te dice cómo vas. Gratis, sin anuncios y para iPhone y Mac.</p>
+      <a class="boton" data-descarga="appStore" hidden>Descargar en el App Store</a>
+      <p data-sin-descarga><strong>Muy pronto en el App Store.</strong></p>
+      <p class="fecha">Necesita iOS 26 o macOS 26, o posterior.</p>
+    </section>
+
+    <section class="tarjeta">
+      <h2>Qué puedes hacer</h2>
+      <ul class="funciones">
+        <li><strong>Apunta en una línea.</strong> «13,5 kebab Paco» y listo. También varios apuntes de una vez, repartos entre varios y lo que se repite cada mes.</li>
+        <li><strong>Frentes y bolsillos.</strong> El día a día, los ahorros, otra tarjeta… cada uno con su saldo, y dentro, el banco y el efectivo.</li>
+        <li><strong>Checkpoints.</strong> Una foto de tu saldo de vez en cuando y una gráfica de cómo evoluciona tu dinero.</li>
+        <li><strong>Comparte las cuentas.</strong> Una tarjeta con lo que te deben y un PDF con el desglose, para que nadie tenga que fiarse de memoria.</li>
+        <li><strong>Grupos.</strong> Para un piso, un viaje o una cena: cada uno apunta lo que paga y Checkpoint calcula quién le debe a quién.</li>
+        <li><strong>Sin abrir la app.</strong> Con Siri, Atajos, el botón de Acción, el Centro de control y los widgets.</li>
+        <li><strong>Tus cuentas, solo tuyas.</strong> Se abre con tu código de 6 cifras, Face ID o Touch ID, y todo se guarda en tu dispositivo y en tu iCloud, sin rastreo.</li>
+        <li><strong>En el iPhone y en el Mac.</strong> Lo mismo en los dos, sincronizado con iCloud.</li>
+      </ul>
+    </section>
+
+    <section class="tarjeta">
       <h2>¿Necesitas ayuda?</h2>
       <p>Si tienes una duda, has encontrado un fallo o quieres proponer una idea, escríbeme y te contesto lo antes posible.</p>
       <a class="boton" href="mailto:ismaelarco.oficial@gmail.com?subject=Checkpoint">Escribir un correo</a>
@@ -27,98 +54,130 @@
     <section class="tarjeta">
       <h2>Preguntas frecuentes</h2>
 
-      <details>
-        <summary>¿Cómo escribo los apuntes?</summary>
-        <p>En una sola línea, con el importe, el concepto y la persona. Por ejemplo:</p>
-        <ul>
-          <li><code>13,5 kebab Paco</code></li>
-          <li><code>Paco: 5,50 pizza + 10 cine - 3 bocata</code></li>
-          <li><code>Ana me debe 8 cena</code></li>
-          <li><code>le debo 8 a Luis</code></li>
-          <li><code>20 cena entre Ana y Luis</code></li>
-        </ul>
-        <p>Si la persona no existe todavía, Checkpoint la crea al guardar.</p>
-      </details>
+      <div class="tema">
+        <h3>Apuntar y saldar</h3>
 
-      <details>
-        <summary>¿Qué es un checkpoint?</summary>
-        <p>Una foto de tu saldo en un momento. Pulsa el botón del sello, pon lo que tienes en cada cuenta y en efectivo, y Checkpoint lo guarda. Con esas fotos se dibuja la gráfica de cómo evoluciona tu dinero.</p>
-      </details>
+        <details>
+          <summary>¿Cómo escribo los apuntes?</summary>
+          <p>En una sola línea, con el importe, el concepto y la persona. Por ejemplo:</p>
+          <ul>
+            <li><code>13,5 kebab Paco</code></li>
+            <li><code>Paco: 5,50 pizza + 10 cine - 3 bocata</code></li>
+            <li><code>Ana me debe 8 cena</code></li>
+            <li><code>le debo 8 a Luis</code></li>
+            <li><code>20 cena entre Ana y Luis</code></li>
+          </ul>
+          <p>Si la persona no existe todavía, Checkpoint la crea al guardar. Antes de guardar te enseña cómo quedará; si algo sale al revés, pulsa <strong>Al revés</strong>.</p>
+        </details>
 
-      <details>
-        <summary>¿Cómo comparto las cuentas con alguien?</summary>
-        <p>Abre a la persona y pulsa <strong>Compartir cuentas</strong>. Se envía una tarjeta con lo que debe y su evolución, y después un PDF con el desglose de todos los apuntes. En WhatsApp se hace en dos pasos para que la tarjeta llegue en grande: elige el mismo chat las dos veces.</p>
-      </details>
+        <details>
+          <summary>¿Cómo marco que me han pagado?</summary>
+          <p>Abre a la persona y pulsa <strong>Saldar cuentas</strong>: el importe entra en tu banco (o sale de él, si pagas tú) y esa persona empieza de cero. Lo saldado queda en <strong>Resumen → Saldados</strong> y, si te equivocas, puedes deshacerlo.</p>
+        </details>
 
-      <details>
-        <summary>¿Cómo funcionan los grupos?</summary>
-        <p>En la pestaña <strong>Grupos</strong> creas uno (un piso, un viaje, una cena…) e invitas a los demás con <strong>Invitar con el enlace</strong>. Cada uno apunta lo que paga, a partes iguales, con la cantidad de cada uno o por partes, y Checkpoint calcula quién le debe a quién. También puedes escribirlo en la barra: <code>En el grupo Piso 60 luz</code>.</p>
-        <p>Cada grupo puede tener una foto, un emoji o nada: se elige al crearlo y se cambia tocando la imagen del grupo en su información.</p>
-        <p>Lo que te deben (o debes) en tus grupos suma al saldo de tus cuentas. Al <strong>saldar</strong> tu parte, el dinero entra o sale solo del bolsillo que elijas para ese grupo (tocando el nombre del grupo, arriba).</p>
-      </details>
+        <details>
+          <summary>¿Y lo que se repite cada mes?</summary>
+          <p>En <strong>⋯ → Recurrentes</strong> lo escribes una vez (por ejemplo, «9,99 Netflix entre Ana y Luis y yo») y eliges cada cuánto. Cuando toca, te lo propone para que lo apuntes, o se apunta solo si lo eliges.</p>
+        </details>
 
-      <details>
-        <summary>He pulsado el enlace de un grupo y no entro</summary>
-        <p>Con el enlace se <strong>pide</strong> entrar: quien administra el grupo tiene que aceptarte, y te llegará un aviso cuando lo haga. Mientras tanto lo verás en la pestaña Grupos, en «Esperando a que te acepten».</p>
-        <p>Si administras un grupo y el enlace ha llegado a quien no debía, toca el nombre del grupo y pulsa <strong>Restablecer el enlace</strong>: el de antes deja de funcionar.</p>
-      </details>
+        <details>
+          <summary>¿Qué es un checkpoint?</summary>
+          <p>Una foto de tu saldo en un momento. Pulsa el botón del sello, pon lo que tienes en cada cuenta y en efectivo, y Checkpoint lo guarda. Con esas fotos se dibuja la gráfica de cómo evoluciona tu dinero.</p>
+        </details>
 
-      <details>
-        <summary>¿Puedo salir de un grupo?</summary>
-        <p>Sí, en la ficha del grupo (tocando su nombre, arriba) → <strong>Abandonar el grupo</strong>, siempre que tus cuentas en él estén saldadas: que no debas nada ni te deban nada. Lo que apuntaste sigue en el historial de los demás.</p>
-      </details>
+        <details>
+          <summary>¿Cómo comparto las cuentas con alguien?</summary>
+          <p>Abre a la persona y pulsa <strong>Compartir cuentas</strong>. Se envía una tarjeta con lo que debe y su evolución, y después un PDF con el desglose de todos los apuntes. En WhatsApp se hace en dos pasos para que la tarjeta llegue en grande: elige el mismo chat las dos veces.</p>
+        </details>
 
-      <details>
-        <summary>No me llegan los avisos de los grupos</summary>
-        <p>Checkpoint te pide permiso para avisarte la primera vez que usas los grupos. Si dijiste que no, actívalos en los ajustes de notificaciones de tu dispositivo, en Checkpoint.</p>
-      </details>
+        <details>
+          <summary>¿La inteligencia artificial envía lo que escribo?</summary>
+          <p>No. Funciona dentro del propio dispositivo, solo en los modelos compatibles y solo cuando pulsas <strong>Entender con IA</strong>.</p>
+        </details>
+      </div>
 
-      <details>
-        <summary>¿Cómo tengo mis cuentas en el iPhone y en el Mac?</summary>
-        <p>Con el mismo Apple ID e iCloud activado en los dos, se sincronizan solas: lo que apuntas en uno aparece en el otro en unos segundos. Al abrir Checkpoint por primera vez en el segundo dispositivo, espera a que lleguen tus cuentas en vez de empezar de cero.</p>
-        <p>Sin iCloud, usa el menú <strong>⋯ → Copia de seguridad</strong>: guarda la copia en un archivo y, en el otro dispositivo, pulsa <strong>Restaurar una copia de seguridad</strong> en la bienvenida.</p>
-      </details>
+      <div class="tema">
+        <h3>Grupos</h3>
 
-      <details>
-        <summary>He olvidado mi código de 6 cifras</summary>
-        <p>Si tienes Face ID o Touch ID activado, entra con él y cámbialo en <strong>⋯ → Seguridad → Cambiar código</strong>. Si no, por seguridad el código no se puede recuperar: tendrás que borrar la app y restaurar tu última copia de seguridad.</p>
-      </details>
+        <details>
+          <summary>¿Cómo funcionan los grupos?</summary>
+          <p>En la pestaña <strong>Grupos</strong> creas uno (un piso, un viaje, una cena…) e invitas a los demás con <strong>Invitar con el enlace</strong>. Cada uno apunta lo que paga, a partes iguales, con la cantidad de cada uno o por partes, y Checkpoint calcula quién le debe a quién. También puedes escribirlo en la barra: <code>En el grupo Piso 60 luz</code>.</p>
+          <p>Cada grupo puede tener una foto, un emoji o nada: se elige al crearlo y se cambia tocando la imagen del grupo en su información.</p>
+          <p>Lo que te deben (o debes) en tus grupos suma al saldo de tus cuentas. Al <strong>saldar</strong> tu parte, el dinero entra o sale solo del bolsillo que elijas para ese grupo (tocando el nombre del grupo, arriba).</p>
+        </details>
 
-      <details>
-        <summary>¿Dónde se guardan mis cuentas?</summary>
-        <p>En tu dispositivo y, si usas iCloud, en tu iCloud privado. Checkpoint no tiene cuentas de usuario y no ve nada de lo que apuntas. Lo único que pasa por su servidor son los grupos, para que los veáis todos sus miembros. Más detalles en la <a href="privacidad.html">política de privacidad</a>.</p>
-      </details>
+        <details>
+          <summary>He pulsado el enlace de un grupo y no entro</summary>
+          <p>Con el enlace se <strong>pide</strong> entrar: quien administra el grupo tiene que aceptarte, y te llegará un aviso cuando lo haga. Mientras tanto lo verás en la pestaña Grupos, en «Esperando a que te acepten».</p>
+          <p>Si administras un grupo y el enlace ha llegado a quien no debía, toca el nombre del grupo y pulsa <strong>Restablecer el enlace</strong>: el de antes deja de funcionar.</p>
+        </details>
 
-      <details>
-        <summary>¿Puedo apuntar sin abrir la app?</summary>
-        <p>Sí: di «Oye Siri, apunta en Checkpoint» o usa el atajo <strong>Apuntar</strong> en la app Atajos, el botón de Acción o el Centro de control. Tienes todos los pasos en <strong>⋯ → Siri y Atajos</strong>.</p>
-      </details>
+        <details>
+          <summary>¿Puedo salir de un grupo?</summary>
+          <p>Sí, en la información del grupo (tocando su nombre, arriba) → <strong>Abandonar el grupo</strong>, siempre que tus cuentas en él estén saldadas: que no debas nada ni te deban nada. Lo que apuntaste sigue en el historial de los demás.</p>
+        </details>
 
-      <details>
-        <summary>¿Hay widgets?</summary>
-        <p>Dos: <strong>Apuntar</strong>, que abre la barra de apuntar, y <strong>Saldo</strong>, que enseña el saldo de un frente o lo pendiente con una persona. Añádelos desde la pantalla de inicio (mantén pulsado un hueco → Editar → Añadir widget) y busca Checkpoint. Para elegir qué saldo ver, mantén pulsado el widget → Editar widget.</p>
-      </details>
+        <details>
+          <summary>No me llegan los avisos de los grupos</summary>
+          <p>Checkpoint te pide permiso para avisarte la primera vez que usas los grupos. Si dijiste que no, actívalos en los ajustes de notificaciones de tu dispositivo, en Checkpoint.</p>
+        </details>
 
-      <details>
-        <summary>¿Y lo que se repite cada mes?</summary>
-        <p>En <strong>⋯ → Recurrentes</strong> lo escribes una vez (por ejemplo, «9,99 Netflix entre Ana y Luis y yo») y eliges cada cuánto. Cuando toca, te lo propone para que lo apuntes, o se apunta solo si lo eliges.</p>
-      </details>
+        <details>
+          <summary>¿Pierdo mis grupos si cambio de iPhone?</summary>
+          <p>No, si usas el mismo Apple ID con iCloud activado: tus grupos te reconocen por un identificador que se guarda en tu iCloud, así que en el iPhone nuevo (y en tu Mac) sigues siendo tú. Sin iCloud, ese identificador se queda solo en el dispositivo en el que empezaste a usar los grupos.</p>
+        </details>
+      </div>
 
-      <details>
-        <summary>¿La inteligencia artificial envía lo que escribo?</summary>
-        <p>No. Funciona dentro del propio dispositivo, solo en los modelos compatibles y solo cuando pulsas <strong>Entender con IA</strong>.</p>
-      </details>
+      <div class="tema">
+        <h3>Sin abrir la app</h3>
 
-      <details>
-        <summary>¿Cómo empiezo de cero?</summary>
-        <p>En el menú <strong>⋯ → Borrar todos los datos</strong>. Se borra todo lo de ese dispositivo, también el código, y la app vuelve a la bienvenida. No se puede deshacer, así que haz antes una copia si la quieres conservar.</p>
-        <p>Tus grupos no se tocan, porque son de todos sus miembros. Para salir de todos y borrar tus datos del servidor, ve a <strong>⋯ → Perfil → Borrar mis datos de los grupos</strong>.</p>
-      </details>
+        <details>
+          <summary>¿Puedo apuntar sin abrir la app?</summary>
+          <p>Sí: di «Oye Siri, apunta en Checkpoint» o usa el atajo <strong>Apuntar</strong> en la app Atajos, el botón de Acción o el Centro de control. Tienes todos los pasos en <strong>⋯ → Siri y Atajos</strong>.</p>
+        </details>
+
+        <details>
+          <summary>¿Hay widgets?</summary>
+          <p>Dos: <strong>Apuntar</strong>, que abre la barra de apuntar, y <strong>Saldo</strong>, que enseña el saldo de un frente o lo pendiente con una persona (el mediano, también lo pendiente con los demás). Añádelos desde la pantalla de inicio (mantén pulsado un hueco → Editar → Añadir widget) y busca Checkpoint. Para elegir qué saldo ver, mantén pulsado el widget → Editar widget.</p>
+        </details>
+      </div>
+
+      <div class="tema">
+        <h3>Tus datos y tus dispositivos</h3>
+
+        <details>
+          <summary>¿Cuánto cuesta? ¿Tengo que crear una cuenta?</summary>
+          <p>Checkpoint es gratis, sin anuncios ni suscripciones, y no hace falta crear ninguna cuenta ni dar tu correo.</p>
+        </details>
+
+        <details>
+          <summary>¿Cómo tengo mis cuentas en el iPhone y en el Mac?</summary>
+          <p>Con el mismo Apple ID e iCloud activado en los dos, se sincronizan solas: lo que apuntas en uno aparece en el otro en unos segundos. Al abrir Checkpoint por primera vez en el segundo dispositivo, espera a que lleguen tus cuentas en vez de empezar de cero.</p>
+          <p>Sin iCloud, usa el menú <strong>⋯ → Copia de seguridad</strong>: guarda la copia en un archivo y, en el otro dispositivo, pulsa <strong>Restaurar una copia de seguridad</strong> en la bienvenida.</p>
+        </details>
+
+        <details>
+          <summary>¿Dónde se guardan mis cuentas?</summary>
+          <p>En tu dispositivo y, si usas iCloud, en tu iCloud privado. Checkpoint no ve nada de lo que apuntas. Lo único que pasa por su servidor son los grupos, para que los veáis todos sus miembros. Más detalles en la <a href="privacidad.html">política de privacidad</a>.</p>
+        </details>
+
+        <details>
+          <summary>He olvidado mi código de 6 cifras</summary>
+          <p>Si tienes Face ID o Touch ID activado, entra con él y cámbialo en <strong>⋯ → Seguridad → Cambiar código</strong>. Si no, por seguridad el código no se puede recuperar: tendrás que borrar la app y restaurar tu última copia de seguridad.</p>
+        </details>
+
+        <details>
+          <summary>¿Cómo empiezo de cero?</summary>
+          <p>En el menú <strong>⋯ → Borrar todos los datos</strong>. Se borra todo lo de ese dispositivo, también el código, y la app vuelve a la bienvenida. No se puede deshacer, así que haz antes una copia si la quieres conservar.</p>
+          <p>Tus grupos no se tocan, porque son de todos sus miembros. Para salir de todos y borrar tus datos del servidor, ve a <strong>⋯ → Perfil → Borrar mis datos de los grupos</strong>.</p>
+        </details>
+      </div>
     </section>
   </main>
 
   <footer>
     <a href="privacidad.html">Política de privacidad</a> · <span>© 2026 Ismael Arco González</span>
   </footer>
+  <script src="/descarga.js"></script>
 </body>
 </html>

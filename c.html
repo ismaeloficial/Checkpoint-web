@@ -27,8 +27,8 @@
       <a class="boton" id="abrir" href="checkpoint://cuentas">Abrir en Checkpoint</a>
 
       <h3>¿Aún no la tienes?</h3>
-      <p id="sin-descarga">Checkpoint llegará muy pronto al App Store. Mientras tanto, pide a quien te ha enviado las cuentas que te mande el PDF.</p>
-      <a class="boton" id="descargar" href="#" hidden>Descargar Checkpoint</a>
+      <p data-sin-descarga>Checkpoint llegará muy pronto al App Store. Mientras tanto, pide a quien te ha enviado las cuentas que te mande el PDF.</p>
+      <a class="boton" data-descarga="appStore" hidden>Descargar en el App Store</a>
 
       <p class="fecha">Las cuentas van dentro del propio enlace: esta página no las ve ni las guarda.</p>
     </section>
@@ -39,18 +39,9 @@
   </footer>
 
   <script>
-    // Dónde se descarga la app (el enlace del App Store cuando esté publicada). Vacío: aún no se puede descargar.
-    const DESCARGA = "";
-
     // Lo que va detrás de # son las cuentas: se pasan tal cual a la app, sin salir de este dispositivo.
     document.getElementById("abrir").href = "checkpoint://cuentas" + location.hash;
-
-    if (DESCARGA) {
-      const boton = document.getElementById("descargar");
-      boton.href = DESCARGA;
-      boton.hidden = false;
-      document.getElementById("sin-descarga").hidden = true;
-    }
   </script>
+  <script src="/descarga.js"></script>
 </body>
 </html>

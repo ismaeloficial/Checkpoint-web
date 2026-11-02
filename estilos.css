@@ -1,4 +1,4 @@
-/* Checkpoint · soporte y privacidad. Mismos colores que la app: verde del sello y azules de las tarjetas. */
+/* Checkpoint · la web (inicio y ayuda, privacidad, cuentas recibidas e invitaciones). Mismos colores que la app: verde del sello y azules de las tarjetas. */
 :root {
   --fondo: #f4f8ff;
   --superficie: #ffffff;
@@ -134,6 +134,24 @@ summary::-webkit-details-marker { display: none; }
 summary::after { content: "+"; color: var(--acento); font-weight: 400; font-size: 22px; line-height: 1; }
 details[open] summary::after { content: "−"; }
 details p { margin: 10px 0 0; }
+
+/* Lo que hace la app (página principal): una lista sin viñetas, con una raya verde como el sello. */
+.tarjeta .funciones {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  display: grid;
+  gap: 12px;
+}
+
+.tarjeta .funciones li {
+  padding-left: 14px;
+  border-left: 3px solid var(--verde);
+}
+
+/* Las preguntas frecuentes, por temas. */
+.tema h3 { color: var(--texto); }
+.tema:first-of-type h3 { margin-top: 4px; }
 
 code {
   background: var(--fondo);
