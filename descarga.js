@@ -1,8 +1,8 @@
 // Dónde se descarga Checkpoint. Lo usan todas las páginas de la web, también la de las invitaciones a grupos.
 // Vacío mientras la app no esté publicada en esa tienda: su botón no sale y se ve el aviso de "muy pronto".
-// El día que se publique, basta con poner aquí el enlace (el del App Store es https://apps.apple.com/app/id6822368348).
+// El día que se publique, basta con poner aquí el enlace.
 const DESCARGAS = {
-  appStore: "",
+  appStore: "https://apps.apple.com/app/id6822368348",
   googlePlay: "",
 };
 
