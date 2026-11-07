@@ -14,6 +14,7 @@ se comparte en los grupos (ver la [política de privacidad](https://checkpoint.i
 ├── privacidad.html     Política de privacidad
 ├── c.html              Cuentas recibidas (/c#…): las cuentas van en el enlace y la página no las ve
 ├── descarga.js         Los enlaces de descarga (App Store, Google Play) que usan todas las páginas
+├── app-store.svg       La insignia oficial de Apple, en español: no se modifica
 ├── estilos.css         Estilos de toda la web (claro y oscuro)
 ├── functions/
 │   ├── api/[[ruta]].ts El servidor de los grupos, en /api

@@ -178,3 +178,8 @@ footer a { margin: 0 6px; }
   .cabecera h1 { font-size: 34px; }
   .tarjeta { padding: 20px; }
 }
+
+/* La insignia oficial del App Store: sin tocarla, con el margen libre que pide Apple (una cuarta parte de su altura). */
+.insignia { display: inline-block; margin: 12px 12px 12px 0; }
+.insignia img { display: block; height: 48px; width: auto; }
+footer .marcas { margin: 8px 0 0; font-size: 11px; opacity: 0.7; }

@@ -237,7 +237,8 @@ test("la página de una invitación, y la web de siempre sigue igual", async () 
   assert.match(imagen.headers.get("content-type") ?? "", /image\/jpeg/);
   assert.equal((await fetch(`${web}/g/noexiste123`)).status, 404);
   // Los botones de descarga salen del mismo sitio en toda la web (descarga.js), ocultos mientras no haya enlace.
-  assert.match(html, /<a class="boton" data-descarga="appStore" hidden>/);
+  assert.match(html, /<a class="insignia" data-descarga="appStore" hidden>/);
+  assert.equal((await fetch(`${web}/app-store.svg`)).status, 200);
   assert.match(html, /<script src="\/descarga\.js"><\/script>/);
   for (const ruta of ["/", "/c"]) assert.match(await (await fetch(web + ruta)).text(), /data-descarga="appStore"/);
   assert.match(await (await fetch(`${web}/descarga.js`)).text(), /const DESCARGAS = \{/);

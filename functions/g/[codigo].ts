@@ -75,12 +75,13 @@ function pagina(codigo: string, grupo: Record<string, any> | null): string {
       <a class="boton" href="checkpoint://grupo/${escapar(codigo)}">Abrir en Checkpoint</a>
       <h3>¿Aún no la tienes?</h3>
       <p data-sin-descarga>Checkpoint llegará muy pronto al App Store y a Google Play.</p>
-      <a class="boton" data-descarga="appStore" hidden>Descargar en el App Store</a>
+      <a class="insignia" data-descarga="appStore" hidden><img src="/app-store.svg" alt="Consíguelo en el App Store"></a>
       <a class="boton" data-descarga="googlePlay" hidden>Descargar en Google Play</a>` : ""}
     </section>
   </main>
   <footer>
     <a href="/">Ayuda</a> · <a href="/privacidad">Política de privacidad</a> · <span>© 2026 Ismael Arco González</span>
+  <p class="marcas">Apple, el logotipo de Apple y App Store son marcas comerciales de Apple Inc.</p>
   </footer>
   <script src="/descarga.js"></script>
 </body>
